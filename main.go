@@ -1,10 +1,13 @@
 package main
 
 import (
+	"github.com/Linxhhh/webook/internal/app"
+	"github.com/Linxhhh/webook/internal/app/middleware"
 	"github.com/Linxhhh/webook/internal/repository"
 	"github.com/Linxhhh/webook/internal/repository/dao"
 	"github.com/Linxhhh/webook/internal/service"
-	"github.com/Linxhhh/webook/internal/app"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -16,9 +19,22 @@ func main() {
 	db := initDB()
 
 	// 初始化路由
-	router := gin.Default()
+	router := initRouter()
 	initUserRouter(db, router)
 	router.Run()
+}
+
+func initRouter() *gin.Engine {
+	router := gin.Default()
+
+	// 注册会话中间件
+	store := cookie.NewStore([]byte("sercet"))
+	router.Use(sessions.Sessions("ssid", store))
+
+	// 注册鉴权中间件
+	router.Use(middleware.AuthMiddleware())
+
+	return router
 }
 
 func initUserRouter(db *gorm.DB, router *gin.Engine) {

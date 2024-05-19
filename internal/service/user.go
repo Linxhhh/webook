@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Linxhhh/webook/internal/domain"
 	"github.com/Linxhhh/webook/internal/repository"
@@ -11,6 +12,7 @@ import (
 
 var (
 	ErrDuplicateEmail = dao.ErrDuplicateEmail
+	ErrInvalidEmailOrPassword = errors.New("邮箱或密码错误")
 )
 
 type UserService struct {
@@ -40,3 +42,26 @@ func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
 	return svc.repo.Create(ctx, u)
 }
 
+/*
+用户登录服务：
+对邮箱和密码进行校验
+*/
+func (svc *UserService) Login(ctx context.Context, email string, password string) (domain.User, error) {
+
+	// 根据邮箱查找用户
+	user, err := svc.repo.SearchByEmail(ctx, email)
+	if err == repository.ErrUserNotFound {
+		return user, ErrInvalidEmailOrPassword
+	}
+	if err != nil {
+		return user, err
+	}
+
+	// 检查密码是否正确
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		return user, ErrInvalidEmailOrPassword
+	}
+	
+	return user, err
+}

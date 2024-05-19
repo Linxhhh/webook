@@ -6,10 +6,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	regexp "github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
 )
 
 const (
-	emailRegexPattern = `^\w+([-+.]\\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$`
+	emailRegexPattern    = `^\w+([-+.]\\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$`
 	passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?.&])[A-Za-z\d@$!%*#?.&]{8,}$`
 )
 
@@ -24,11 +25,10 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 }
 
 func (hdl *UserHandler) RegistryRouter(router *gin.Engine) {
-	ug := router.Group("/user")
+	ug := router.Group("user")
 	ug.POST("signup", hdl.SignUp) // 用户注册
-
+	ug.POST("login", hdl.Login)
 }
-
 
 /*
 用户注册API：
@@ -97,4 +97,41 @@ func IsValidPassword(pwd string) (bool, error) {
 	return passwordRegex.MatchString(pwd)
 }
 
+/*
+用户登录API：
+先绑定前端的登录请求，再调用下层服务进行校验，最后设置 Session
+*/
+func (hdl *UserHandler) Login(ctx *gin.Context) {
 
+	// 登录请求
+	type LoginReq struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	var req LoginReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.String(200, "系统错误")
+		return
+	}
+
+	// 调用服务
+	user, err := hdl.svc.Login(ctx, req.Email, req.Password)
+	if err == service.ErrInvalidEmailOrPassword {
+		ctx.String(200, "邮箱或密码错误")
+		return
+	}
+	if err != nil {
+		ctx.String(200, "系统错误")
+		return
+	}
+
+	// 设置 Session
+	session := sessions.Default(ctx)
+	session.Set("userId", user.Id)
+	session.Options(sessions.Options{MaxAge: 3600})
+	if err = session.Save(); err != nil {
+		ctx.String(200, "系统错误")
+		return
+	}
+	ctx.String(200, "登录成功")
+}
