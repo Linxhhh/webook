@@ -3,6 +3,8 @@ package app
 import (
 	"github.com/Linxhhh/webook/internal/domain"
 	"github.com/Linxhhh/webook/internal/service"
+	"github.com/Linxhhh/webook/pkg/jwts"
+	"github.com/Linxhhh/webook/pkg/res"
 	"github.com/gin-gonic/gin"
 
 	regexp "github.com/dlclark/regexp2"
@@ -26,12 +28,12 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 
 func (hdl *UserHandler) RegistryRouter(router *gin.Engine) {
 	ug := router.Group("user")
-	ug.POST("signup", hdl.SignUp) // 用户注册
-	ug.POST("login", hdl.Login)
+	ug.POST("signup", hdl.SignUp)    // 用户注册
+	ug.POST("login", hdl.LoginByJWT) // 用户登录
 }
 
 /*
-用户注册API：
+SignUp 用户注册API：
 先绑定前端的注册请求，再进行邮箱校验，密码校验，最后调用下层服务来创建用户
 */
 func (hdl *UserHandler) SignUp(ctx *gin.Context) {
@@ -98,10 +100,10 @@ func IsValidPassword(pwd string) (bool, error) {
 }
 
 /*
-用户登录API：
+LoginBySession 用户登录API：
 先绑定前端的登录请求，再调用下层服务进行校验，最后设置 Session
 */
-func (hdl *UserHandler) Login(ctx *gin.Context) {
+func (hdl *UserHandler) LoginBySession(ctx *gin.Context) {
 
 	// 登录请求
 	type LoginReq struct {
@@ -134,4 +136,46 @@ func (hdl *UserHandler) Login(ctx *gin.Context) {
 		return
 	}
 	ctx.String(200, "登录成功")
+}
+
+/*
+LoginByJWT 用户登录API：
+先绑定前端的登录请求，再调用下层服务进行校验，最后生成并返回用户 Token
+*/
+func (hdl *UserHandler) LoginByJWT(ctx *gin.Context) {
+
+	// 登录请求
+	type LoginReq struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	var req LoginReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 调用服务
+	user, err := hdl.svc.Login(ctx, req.Email, req.Password)
+	if err == service.ErrInvalidEmailOrPassword {
+		res.FailWithMsg("邮箱或密码错误", ctx)
+		return
+	}
+	if err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 生成 Token
+	token, err := jwts.GenToken(jwts.JwtPayload{
+		UserId: user.Id,
+		UserAgent: ctx.GetHeader("User-Agent"),
+	})
+	if err != nil {
+		res.FailWithMsg("生成用户令牌错误！", ctx)
+		return
+	}
+
+	// 返回用户token
+	res.OKWithData(token, ctx)
 }

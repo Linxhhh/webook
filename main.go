@@ -35,7 +35,7 @@ func initRouter() *gin.Engine {
 	router.Use(sessions.Sessions("ssid", store))
 
 	// 注册鉴权中间件
-	router.Use(middleware.AuthMiddleware())
+	router.Use(middleware.AuthByJWT())
 
 	return router
 }
