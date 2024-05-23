@@ -10,7 +10,6 @@ import (
 	"github.com/Linxhhh/webook/internal/repository/dao"
 	"github.com/Linxhhh/webook/internal/service"
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/sessions"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
