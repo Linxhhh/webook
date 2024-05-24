@@ -34,6 +34,13 @@ func AuthByJWT() gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
+		
+		// 对用户代理进行校验
+		if claims.UserAgent != ctx.GetHeader("User-Agent") {
+			ctx.String(200, "用户代理更改!")
+			ctx.Abort()
+			return
+		}
 
 		// 如果剩余有效期小于30分钟，则刷新有效期
 		if time.Until(claims.ExpiresAt.Time) < time.Minute*30 {
