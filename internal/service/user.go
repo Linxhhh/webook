@@ -67,9 +67,17 @@ func (svc *UserService) Login(ctx context.Context, email string, password string
 }
 
 /*
-edit 信息编辑服务：
+Edit 信息编辑服务：
 直接调用存储层，进行数据更新
 */
 func (us *UserService) Edit(ctx context.Context, u domain.User) error {
 	return us.repo.Update(ctx, u)
+}
+
+/*
+Profile 信息获取服务：
+直接调用存储层，然后返回信息
+*/
+func (us *UserService) Profile(ctx context.Context, id int64) (domain.User, error) {
+	return us.repo.SearchById(ctx, id)
 }

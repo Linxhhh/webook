@@ -58,6 +58,16 @@ func (dao UserDAO) Insert(ctx context.Context, u User) error {
 	return err
 }
 
+// SearchById 通过 id 查找用户
+func (dao *UserDAO) SearchById(ctx context.Context, id int64) (User, error) {
+	var user User
+	err := dao.db.Where(id).First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return user, ErrRecordNotFound
+	}
+	return user, err
+}
+
 // SearchByEmail 通过邮箱查找用户
 func (dao *UserDAO) SearchByEmail(ctx context.Context, email string) (User, error) {
 	var user User

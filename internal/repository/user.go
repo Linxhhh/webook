@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/Linxhhh/webook/internal/domain"
 	"github.com/Linxhhh/webook/internal/repository/dao"
@@ -27,6 +28,19 @@ func (repo *UserRepository) Create(ctx context.Context, u domain.User) error {
 		Email:    u.Email,
 		Password: u.Password,
 	})
+}
+
+func (repo *UserRepository) SearchById(ctx context.Context, id int64) (domain.User, error) {
+	user, err := repo.dao.SearchById(ctx, id)
+	if err == dao.ErrRecordNotFound {
+		return domain.User{}, ErrUserNotFound
+	}
+	return domain.User{
+		Email:        user.Email,
+		NickName:     user.NickName,
+		Birthday:     time.UnixMilli(user.Birthday),
+		Introduction: user.Introduction,
+	}, err
 }
 
 func (repo *UserRepository) SearchByEmail(ctx context.Context, email string) (domain.User, error) {

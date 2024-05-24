@@ -34,6 +34,7 @@ func (hdl *UserHandler) RegistryRouter(router *gin.Engine) {
 	ug.POST("signup", hdl.SignUp)    // 用户注册
 	ug.POST("login", hdl.LoginByJWT) // 用户登录
 	ug.POST("edit", hdl.Edit)        // 信息编辑
+	ug.GET("profile", hdl.Profile)   // 信息获取
 }
 
 /*
@@ -181,7 +182,8 @@ func (hdl *UserHandler) LoginByJWT(ctx *gin.Context) {
 	}
 
 	// 返回用户token
-	res.OKWithData(token, ctx)
+	ctx.Header("jwt-token", token)
+	res.OKWithMsg("登陆成功", ctx)
 }
 
 /*
@@ -205,7 +207,7 @@ func (hdl *UserHandler) Edit(ctx *gin.Context) {
 	// 获取用户 Token
 	_claims, _ := ctx.Get("claims")
 	claims := _claims.(*jwts.CustomClaims)
-	
+
 	user := domain.User{Id: claims.UserId}
 
 	// 校验昵称长度
@@ -263,4 +265,36 @@ func ValidateDateFormat(dateStr string) (time.Time, bool) {
 func ValidateIntroduction(s string) bool {
 	const MaxLength, MaxBytes = 50, 100
 	return utf8.RuneCountInString(s) < MaxLength || len(s) < MaxBytes
+}
+
+/*
+Profile 获取用户信息API：
+*/
+func (hdl *UserHandler) Profile(ctx *gin.Context) {
+
+	// 获取用户 Token
+	_claims, _ := ctx.Get("claims")
+	claims := _claims.(*jwts.CustomClaims)
+
+	// 调用下层服务
+	user, err := hdl.svc.Profile(ctx, claims.UserId)
+	if err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 用户信息响应
+	type ProfileResp struct {
+		Email        string `json:"email"`
+		NickName     string `json:"nickName"`
+		Birthday     string `json:"birthday"`
+		Introduction string `json:"introduction"`
+	}
+	resp := ProfileResp{
+		Email: user.Email,
+		NickName: user.NickName,
+		Birthday: user.Birthday.Format("2006-01-02"),
+		Introduction: user.Introduction,
+	}
+	res.OKWithData(resp, ctx)
 }
