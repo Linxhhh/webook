@@ -1,15 +1,19 @@
 package main
 
 import (
+	"context"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/Linxhhh/webook/internal/app"
 	"github.com/Linxhhh/webook/internal/app/middleware"
 	"github.com/Linxhhh/webook/internal/repository"
+	"github.com/Linxhhh/webook/internal/repository/cache"
 	"github.com/Linxhhh/webook/internal/repository/dao"
 	"github.com/Linxhhh/webook/internal/service"
 	"github.com/gin-contrib/cors"
+	"github.com/go-redis/redis"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -17,12 +21,11 @@ import (
 )
 
 func main() {
-	// 初始化数据库
+	// 初始化
 	db := initDB()
-
-	// 初始化路由
+	cache := initCache()
 	router := initRouter()
-	initUserRouter(db, router)
+	initUserRouter(db, cache, router)
 	router.Run()
 }
 
@@ -58,9 +61,10 @@ func initRouter() *gin.Engine {
 	return router
 }
 
-func initUserRouter(db *gorm.DB, router *gin.Engine) {
+func initUserRouter(db *gorm.DB, cmd *redis.Client, router *gin.Engine) {
 	ud := dao.NewUserDAO(db)
-	ur := repository.NewUserRepository(ud)
+	uc := cache.NewUserCache(cmd)
+	ur := repository.NewUserRepository(ud, uc)
 	us := service.NewUserService(ur)
 	hdl := app.NewUserHandler(us)
 	hdl.RegistryRouter(router)
@@ -77,4 +81,23 @@ func initDB() *gorm.DB {
 		panic(err)
 	}
 	return db
+}
+
+func initCache() *redis.Client {
+	client := redis.NewClient(&redis.Options{
+		Addr:     "locahost:6379",
+		Password: "",
+		DB:       0,
+	})
+
+	// 设置超时时间
+	_, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// 测试 Redis 连接是否正常
+	_, err := client.Ping().Result()
+	if err != nil {
+		log.Fatalf("Redis 连接失败，%s", err.Error())
+	}
+	return client
 }

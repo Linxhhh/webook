@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Linxhhh/webook/internal/domain"
+	"github.com/Linxhhh/webook/internal/repository/cache"
 	"github.com/Linxhhh/webook/internal/repository/dao"
 )
 
@@ -14,12 +15,14 @@ var (
 )
 
 type UserRepository struct {
-	dao *dao.UserDAO
+	dao   *dao.UserDAO
+	cache *cache.UserCache
 }
 
-func NewUserRepository(dao *dao.UserDAO) *UserRepository {
+func NewUserRepository(dao *dao.UserDAO, cache *cache.UserCache) *UserRepository {
 	return &UserRepository{
-		dao: dao,
+		dao:   dao,
+		cache: cache,
 	}
 }
 
@@ -31,16 +34,31 @@ func (repo *UserRepository) Create(ctx context.Context, u domain.User) error {
 }
 
 func (repo *UserRepository) SearchById(ctx context.Context, id int64) (domain.User, error) {
+	
+	// 查询缓存
+	if user, err := repo.cache.Get(ctx, id); err == nil {
+		return user, err
+	}
+
+	// 查询数据库
 	user, err := repo.dao.SearchById(ctx, id)
 	if err == dao.ErrRecordNotFound {
 		return domain.User{}, ErrUserNotFound
 	}
-	return domain.User{
+
+	u := domain.User{
 		Email:        user.Email,
 		NickName:     user.NickName,
 		Birthday:     time.UnixMilli(user.Birthday),
 		Introduction: user.Introduction,
-	}, err
+	}
+
+	// 回写缓存
+	go func() {
+		repo.cache.Set(ctx, u)
+	}()
+	
+	return u, err
 }
 
 func (repo *UserRepository) SearchByEmail(ctx context.Context, email string) (domain.User, error) {
