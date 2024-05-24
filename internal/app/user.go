@@ -1,6 +1,9 @@
 package app
 
 import (
+	"time"
+	"unicode/utf8"
+
 	"github.com/Linxhhh/webook/internal/domain"
 	"github.com/Linxhhh/webook/internal/service"
 	"github.com/Linxhhh/webook/pkg/jwts"
@@ -30,6 +33,7 @@ func (hdl *UserHandler) RegistryRouter(router *gin.Engine) {
 	ug := router.Group("user")
 	ug.POST("signup", hdl.SignUp)    // 用户注册
 	ug.POST("login", hdl.LoginByJWT) // 用户登录
+	ug.POST("edit", hdl.Edit)        // 信息编辑
 }
 
 /*
@@ -168,7 +172,7 @@ func (hdl *UserHandler) LoginByJWT(ctx *gin.Context) {
 
 	// 生成 Token
 	token, err := jwts.GenToken(jwts.JwtPayload{
-		UserId: user.Id,
+		UserId:    user.Id,
 		UserAgent: ctx.GetHeader("User-Agent"),
 	})
 	if err != nil {
@@ -178,4 +182,85 @@ func (hdl *UserHandler) LoginByJWT(ctx *gin.Context) {
 
 	// 返回用户token
 	res.OKWithData(token, ctx)
+}
+
+/*
+edit 信息编辑API：
+绑定前端信息，调用下次服务进行存储
+*/
+func (hdl *UserHandler) Edit(ctx *gin.Context) {
+
+	// 信息修改请求
+	type EditReq struct {
+		NickName     string `json:"nickName"`
+		Birthday     string `json:"birthday"`
+		Introduction string `json:"introduction"`
+	}
+	var req EditReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 获取用户 Token
+	_claims, _ := ctx.Get("claims")
+	claims := _claims.(*jwts.CustomClaims)
+	
+	user := domain.User{Id: claims.UserId}
+
+	// 校验昵称长度
+	if req.NickName != "" {
+		if !ValidateNickName(req.NickName) {
+			res.FailWithMsg("用户昵称超长", ctx)
+			return
+		}
+		user.NickName = req.NickName
+	}
+
+	// 校验日期格式
+	var birthday time.Time
+	if req.Birthday != "" {
+		date, ok := ValidateDateFormat(req.Birthday)
+		if !ok {
+			res.FailWithMsg("生日日期格式错误", ctx)
+			return
+		}
+		birthday = date
+		user.Birthday = birthday
+	}
+
+	// 校验简介长度
+	if req.Introduction != "" {
+		if !ValidateIntroduction(req.Introduction) {
+			res.FailWithMsg("个人简介超长", ctx)
+			return
+		}
+		user.Introduction = req.Introduction
+	}
+
+	// 调用下层服务
+	err := hdl.svc.Edit(ctx, user)
+	if err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+	res.OKWithMsg("编辑成功", ctx)
+}
+
+// ValidateNickName 判断昵称长度
+func ValidateNickName(name string) bool {
+	const MaxLength, MaxBytes = 10, 20
+	return utf8.RuneCountInString(name) < MaxLength || len(name) < MaxBytes
+}
+
+// ValidateDateFormat 校验日期格式是否为 "2006-01-02"
+func ValidateDateFormat(dateStr string) (time.Time, bool) {
+	date, err := time.Parse("2006-01-02", dateStr)
+	return date, err == nil
+}
+
+// ValidateIntroduction 校验简介长度
+func ValidateIntroduction(s string) bool {
+	const MaxLength, MaxBytes = 50, 100
+	return utf8.RuneCountInString(s) < MaxLength || len(s) < MaxBytes
 }

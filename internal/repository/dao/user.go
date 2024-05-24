@@ -16,11 +16,14 @@ var (
 
 // User 数据库表结构
 type User struct {
-	Id       int64  `gorm:"primaryKey"`
-	Email    string `gorm:"unique"`
-	Password string
-	CTime    int64 // 创建时间
-	UTime    int64 // 更新时间
+	Id           int64  `gorm:"primaryKey"`
+	Email        string `gorm:"unique"`
+	Password     string
+	NickName     string
+	Birthday     int64
+	Introduction string
+	CTime        int64 // 创建时间
+	UTime        int64 // 更新时间
 }
 
 // UserDAO 数据库存储实例
@@ -42,7 +45,7 @@ func (dao UserDAO) Insert(ctx context.Context, u User) error {
 	now := time.Now().UnixMilli()
 	u.CTime = now
 	u.UTime = now
-	
+
 	// 插入新记录
 	err := dao.db.WithContext(ctx).Create(&u).Error
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
@@ -63,4 +66,33 @@ func (dao *UserDAO) SearchByEmail(ctx context.Context, email string) (User, erro
 		return user, ErrRecordNotFound
 	}
 	return user, err
+}
+
+// Update 更新用户个人信息
+func (dao *UserDAO) Update(ctx context.Context, u User) error {
+
+	// 查找用户
+	var user User
+	err := dao.db.Where(u.Id).First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return ErrRecordNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	// 更新信息
+	if u.NickName != "" {
+		user.NickName = u.NickName
+	}
+	if u.Birthday != 0 {
+		user.Birthday = u.Birthday
+	}
+	if u.Introduction != "" {
+		user.Introduction = u.Introduction
+	}
+	now := time.Now().UnixMilli()
+	user.UTime = now
+	err = dao.db.Save(&user).Error
+	return err
 }

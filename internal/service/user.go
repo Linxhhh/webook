@@ -26,7 +26,7 @@ func NewUserService(repo *repository.UserRepository) *UserService {
 }
 
 /* 
-用户注册服务：
+SignUp 用户注册服务：
 先进行密码加密，再调用存储层，进行数据存储
 */
 func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
@@ -43,7 +43,7 @@ func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
 }
 
 /*
-用户登录服务：
+Login 用户登录服务：
 对邮箱和密码进行校验
 */
 func (svc *UserService) Login(ctx context.Context, email string, password string) (domain.User, error) {
@@ -64,4 +64,12 @@ func (svc *UserService) Login(ctx context.Context, email string, password string
 	}
 	
 	return user, err
+}
+
+/*
+edit 信息编辑服务：
+直接调用存储层，进行数据更新
+*/
+func (us *UserService) Edit(ctx context.Context, u domain.User) error {
+	return us.repo.Update(ctx, u)
 }
