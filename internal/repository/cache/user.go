@@ -33,7 +33,7 @@ func (uc *UserCache) Key(id int64) string {
 
 func (uc *UserCache) Set(ctx context.Context, u domain.User) error {
 	
-	// json 序列化
+	// 序列化 -> []byte
 	val, err := json.Marshal(u)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (uc *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 		return domain.User{}, err
 	}
 	
-	// json 反序列化
+	// 反序列化 -> domain.User
 	var u domain.User
 	err = json.Unmarshal([]byte(val), &u)
 	return u, err
