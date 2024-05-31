@@ -15,17 +15,21 @@ import (
 )
 
 const (
+	biz                  = "login"
 	emailRegexPattern    = `^\w+([-+.]\\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$`
 	passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?.&])[A-Za-z\d@$!%*#?.&]{8,}$`
+	phoneRegexPattern    = `^(\+?0?86\-?)?1[345789]\d{9}$`
 )
 
 type UserHandler struct {
-	svc *service.UserService
+	svc     *service.UserService
+	codeSvc *service.CodeService
 }
 
-func NewUserHandler(svc *service.UserService) *UserHandler {
+func NewUserHandler(svc *service.UserService, codeSvc *service.CodeService) *UserHandler {
 	return &UserHandler{
 		svc: svc,
+		codeSvc: codeSvc,
 	}
 }
 
@@ -33,8 +37,12 @@ func (hdl *UserHandler) RegistryRouter(router *gin.Engine) {
 	ug := router.Group("user")
 	ug.POST("signup", hdl.SignUp)    // 用户注册
 	ug.POST("login", hdl.LoginByJWT) // 用户登录
-	ug.POST("edit", hdl.Edit)        // 信息编辑
-	ug.GET("profile", hdl.Profile)   // 信息获取
+
+	ug.PUT("sms/send", hdl.SendSmsCode)      // 短信验证码登录：发送验证码
+	ug.POST("sms/verify", hdl.VerifySmsCode) // 短信验证码登录：校验验证码
+
+	ug.POST("edit", hdl.Edit)      // 信息编辑
+	ug.GET("profile", hdl.Profile) // 信息获取
 }
 
 /*
@@ -56,7 +64,7 @@ func (hdl *UserHandler) SignUp(ctx *gin.Context) {
 	}
 
 	// 校验邮箱
-	if ok, err := IsValidEmail(req.Email); err != nil {
+	if ok, err := isValidEmail(req.Email); err != nil {
 		ctx.String(200, "系统错误")
 		return
 	} else if !ok {
@@ -69,7 +77,7 @@ func (hdl *UserHandler) SignUp(ctx *gin.Context) {
 		ctx.String(200, "两次密码不一致")
 		return
 	}
-	if ok, err := IsValidPassword(req.Password); err != nil {
+	if ok, err := isValidPassword(req.Password); err != nil {
 		ctx.String(200, "系统错误")
 		return
 	} else if !ok {
@@ -85,21 +93,21 @@ func (hdl *UserHandler) SignUp(ctx *gin.Context) {
 	switch err {
 	case nil:
 		ctx.String(200, "注册成功")
-	case service.ErrDuplicateEmail:
+	case service.ErrDuplicateEmailorPhone:
 		ctx.String(200, "邮箱冲突")
 	default:
 		ctx.String(200, "系统错误")
 	}
 }
 
-// IsValidEmail 通过正则表达式校验邮箱格式
-func IsValidEmail(email string) (bool, error) {
+// isValidEmail 通过正则表达式校验邮箱格式
+func isValidEmail(email string) (bool, error) {
 	var emailRegex = regexp.MustCompile(emailRegexPattern, regexp.None)
 	return emailRegex.MatchString(email)
 }
 
-// IsValidPassword 通过正则表达式校验密码格式
-func IsValidPassword(pwd string) (bool, error) {
+// isValidPassword 通过正则表达式校验密码格式
+func isValidPassword(pwd string) (bool, error) {
 	var passwordRegex = regexp.MustCompile(passwordRegexPattern, regexp.None)
 	return passwordRegex.MatchString(pwd)
 }
@@ -117,7 +125,7 @@ func (hdl *UserHandler) LoginBySession(ctx *gin.Context) {
 	}
 	var req LoginReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.String(200, "系统错误")
+		ctx.String(200, "参数错误")
 		return
 	}
 
@@ -156,7 +164,7 @@ func (hdl *UserHandler) LoginByJWT(ctx *gin.Context) {
 	}
 	var req LoginReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		res.FailWithMsg("系统错误", ctx)
+		res.FailWithMsg("参数错误", ctx)
 		return
 	}
 
@@ -174,6 +182,106 @@ func (hdl *UserHandler) LoginByJWT(ctx *gin.Context) {
 	// 生成 Token
 	token, err := jwts.GenToken(jwts.JwtPayload{
 		UserId:    user.Id,
+		UserAgent: ctx.GetHeader("User-Agent"),
+	})
+	if err != nil {
+		res.FailWithMsg("生成用户令牌错误！", ctx)
+		return
+	}
+
+	// 返回用户token
+	ctx.Header("jwt-token", token)
+	res.OKWithMsg("登陆成功", ctx)
+}
+
+/*
+SendSmsCode 发送短信验证码API：
+绑定前端手机号，调用底层服务发送短信
+*/
+func (hdl *UserHandler) SendSmsCode(ctx *gin.Context) {
+
+	// 发送验证码请求
+	type SendSmsCodeReq struct {
+		Phone string `json:"phone" binding:"required"`
+	}
+	var req SendSmsCodeReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res.FailWithMsg("参数错误", ctx)
+		return
+	}
+
+	// 校验手机号码
+	if ok, err := isValidPhone(req.Phone); err != nil {
+		ctx.String(200, "系统错误")
+		return
+	} else if !ok {
+		ctx.String(200, "非法手机号码")
+		return
+	}
+
+	// 调用底层服务
+	err := hdl.codeSvc.Send(ctx, biz, req.Phone)
+	switch err {
+	case nil:
+		res.OKWithMsg("短信发送成功", ctx)
+	case service.ErrSendCodeTooMany:
+		res.FailWithMsg("短信发送频繁", ctx)
+	default:
+		res.FailWithMsg("系统错误", ctx)
+	}
+}
+
+// isValidPhone 通过正则表达式校验手机格式
+func isValidPhone(phone string) (bool, error) {
+	var emailRegex = regexp.MustCompile(phoneRegexPattern, regexp.None)
+	return emailRegex.MatchString(phone)
+}
+
+/*
+VerifySmsCode 短信验证API：
+调用下次服务，对验证码进行校验，若校验通过，则查询/创建用户，返回用户 Token
+*/
+func (hdl *UserHandler) VerifySmsCode(ctx *gin.Context) {
+
+	// 验证码校验请求
+	type VerifySmsCodeReq struct {
+		Phone string `json:"phone" binding:"required"`
+		Code  string `json:"code" binding:"required"`
+	}
+	var req VerifySmsCodeReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res.FailWithMsg("参数错误", ctx)
+		return
+	}
+
+	// 验证码校验
+	err := hdl.codeSvc.Verify(ctx, biz, req.Phone, req.Code)
+	switch err {
+	case nil:
+	case service.ErrVerifyCodeFailed:
+		res.FailWithMsg("校验失败", ctx)
+		return
+	case service.ErrVerifyCodeTooMany:
+		res.FailWithMsg("校验频繁", ctx)
+		return
+	default:
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 查找或创建 User
+	uid, err := hdl.svc.FindOrCreate(ctx, req.Phone)
+	switch err {
+	case nil:
+	case service.ErrDuplicateEmailorPhone:  // 这种情况是，一个未注册用户，通过验证码同时登录两台设备
+	default:
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 生成 Token
+	token, err := jwts.GenToken(jwts.JwtPayload{
+		UserId:    uid,
 		UserAgent: ctx.GetHeader("User-Agent"),
 	})
 	if err != nil {
@@ -212,7 +320,7 @@ func (hdl *UserHandler) Edit(ctx *gin.Context) {
 
 	// 校验昵称长度
 	if req.NickName != "" {
-		if !ValidateNickName(req.NickName) {
+		if !isValidateNickName(req.NickName) {
 			res.FailWithMsg("用户昵称超长", ctx)
 			return
 		}
@@ -222,7 +330,7 @@ func (hdl *UserHandler) Edit(ctx *gin.Context) {
 	// 校验日期格式
 	var birthday time.Time
 	if req.Birthday != "" {
-		date, ok := ValidateDateFormat(req.Birthday)
+		date, ok := validateDateFormat(req.Birthday)
 		if !ok {
 			res.FailWithMsg("生日日期格式错误", ctx)
 			return
@@ -233,7 +341,7 @@ func (hdl *UserHandler) Edit(ctx *gin.Context) {
 
 	// 校验简介长度
 	if req.Introduction != "" {
-		if !ValidateIntroduction(req.Introduction) {
+		if !isValidateIntroduction(req.Introduction) {
 			res.FailWithMsg("个人简介超长", ctx)
 			return
 		}
@@ -249,26 +357,27 @@ func (hdl *UserHandler) Edit(ctx *gin.Context) {
 	res.OKWithMsg("编辑成功", ctx)
 }
 
-// ValidateNickName 判断昵称长度
-func ValidateNickName(name string) bool {
+// isValidateNickName 判断昵称长度
+func isValidateNickName(name string) bool {
 	const MaxLength, MaxBytes = 10, 20
 	return utf8.RuneCountInString(name) < MaxLength || len(name) < MaxBytes
 }
 
-// ValidateDateFormat 校验日期格式是否为 "2006-01-02"
-func ValidateDateFormat(dateStr string) (time.Time, bool) {
+// validateDateFormat 校验日期格式是否为 "2006-01-02"
+func validateDateFormat(dateStr string) (time.Time, bool) {
 	date, err := time.Parse("2006-01-02", dateStr)
 	return date, err == nil
 }
 
-// ValidateIntroduction 校验简介长度
-func ValidateIntroduction(s string) bool {
+// isValidateIntroduction 校验简介长度
+func isValidateIntroduction(s string) bool {
 	const MaxLength, MaxBytes = 50, 100
 	return utf8.RuneCountInString(s) < MaxLength || len(s) < MaxBytes
 }
 
 /*
 Profile 获取用户信息API：
+调用下次服务，响应用户信息
 */
 func (hdl *UserHandler) Profile(ctx *gin.Context) {
 
@@ -286,14 +395,16 @@ func (hdl *UserHandler) Profile(ctx *gin.Context) {
 	// 用户信息响应
 	type ProfileResp struct {
 		Email        string `json:"email"`
+		Phone        string `json:"phone"`
 		NickName     string `json:"nickName"`
 		Birthday     string `json:"birthday"`
 		Introduction string `json:"introduction"`
 	}
 	resp := ProfileResp{
-		Email: user.Email,
-		NickName: user.NickName,
-		Birthday: user.Birthday.Format("2006-01-02"),
+		Email:        user.Email,
+		Phone:        user.Phone,
+		NickName:     user.NickName,
+		Birthday:     user.Birthday.Format("2006-01-02"),
 		Introduction: user.Introduction,
 	}
 	res.OKWithData(resp, ctx)

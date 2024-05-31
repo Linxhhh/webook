@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/Linxhhh/webook/internal/domain"
@@ -10,8 +11,8 @@ import (
 )
 
 var (
-	ErrDuplicateEmail = dao.ErrDuplicateEmail
-	ErrUserNotFound   = dao.ErrRecordNotFound
+	ErrDuplicateEmailorPhone = dao.ErrDuplicateEmailorPhone
+	ErrUserNotFound          = dao.ErrRecordNotFound
 )
 
 type UserRepository struct {
@@ -26,15 +27,27 @@ func NewUserRepository(dao *dao.UserDAO, cache *cache.UserCache) *UserRepository
 	}
 }
 
-func (repo *UserRepository) Create(ctx context.Context, u domain.User) error {
+func (repo *UserRepository) CreateByEmail(ctx context.Context, u domain.User) error {
 	return repo.dao.Insert(ctx, dao.User{
-		Email:    u.Email,
+		Email: sql.NullString{
+			String: u.Email,
+			Valid:  u.Email != "",
+		},
 		Password: u.Password,
 	})
 }
 
+func (repo *UserRepository) CreateByPhone(ctx context.Context, phone string) error {
+	return repo.dao.Insert(ctx, dao.User{
+		Phone: sql.NullString{
+			String: phone,
+			Valid:  phone != "",
+		},
+	})
+}
+
 func (repo *UserRepository) SearchById(ctx context.Context, id int64) (domain.User, error) {
-	
+
 	// 查询缓存
 	if user, err := repo.cache.Get(ctx, id); err == nil {
 		return user, err
@@ -47,7 +60,8 @@ func (repo *UserRepository) SearchById(ctx context.Context, id int64) (domain.Us
 	}
 
 	u := domain.User{
-		Email:        user.Email,
+		Email:        user.Email.String,
+		Phone:        user.Phone.String,
 		NickName:     user.NickName,
 		Birthday:     time.UnixMilli(user.Birthday),
 		Introduction: user.Introduction,
@@ -57,7 +71,7 @@ func (repo *UserRepository) SearchById(ctx context.Context, id int64) (domain.Us
 	go func() {
 		repo.cache.Set(ctx, u)
 	}()
-	
+
 	return u, err
 }
 
@@ -68,9 +82,17 @@ func (repo *UserRepository) SearchByEmail(ctx context.Context, email string) (do
 	}
 	return domain.User{
 		Id:       user.Id,
-		Email:    user.Email,
+		Email:    user.Email.String,
 		Password: user.Password,
 	}, err
+}
+
+func (repo *UserRepository) SearchByPhone(ctx context.Context, phone string) (int64, error) {
+	user, err := repo.dao.SearchByPhone(ctx, phone)
+	if err == dao.ErrRecordNotFound {
+		return -1, ErrUserNotFound
+	}
+	return user.Id, err
 }
 
 func (repo *UserRepository) Update(ctx context.Context, u domain.User) error {

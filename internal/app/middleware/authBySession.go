@@ -15,9 +15,11 @@ AuthBySession 鉴权中间件：
 func AuthBySession() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		path := ctx.Request.URL.Path
-		if path == "/user/signup" || path == "/user/login" {
+		for _, ignorePath := range ignorePaths {
 			// 不需要登录鉴权
-			return
+			if path == ignorePath {
+				return
+			}
 		}
 
 		// 获取 Session

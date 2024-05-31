@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -10,15 +11,16 @@ import (
 )
 
 var (
-	ErrDuplicateEmail = errors.New("邮箱冲突")
-	ErrRecordNotFound = gorm.ErrRecordNotFound
+	ErrDuplicateEmailorPhone = errors.New("邮箱或手机号码冲突")
+	ErrRecordNotFound        = gorm.ErrRecordNotFound
 )
 
 // User 数据库表结构
 type User struct {
-	Id           int64  `gorm:"primaryKey"`
-	Email        string `gorm:"unique"`
+	Id           int64          `gorm:"primaryKey"`
+	Email        sql.NullString `gorm:"unique"`
 	Password     string
+	Phone        sql.NullString `gorm:"unique"`
 	NickName     string
 	Birthday     int64
 	Introduction string
@@ -51,8 +53,8 @@ func (dao UserDAO) Insert(ctx context.Context, u User) error {
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		const duplicateErr uint16 = 1062
 		if mysqlErr.Number == duplicateErr {
-			// 用户冲突，邮箱冲突
-			return ErrDuplicateEmail
+			// 用户冲突，邮箱/手机号码冲突
+			return ErrDuplicateEmailorPhone
 		}
 	}
 	return err
@@ -72,6 +74,16 @@ func (dao *UserDAO) SearchById(ctx context.Context, id int64) (User, error) {
 func (dao *UserDAO) SearchByEmail(ctx context.Context, email string) (User, error) {
 	var user User
 	err := dao.db.Where("email = ?", email).First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return user, ErrRecordNotFound
+	}
+	return user, err
+}
+
+// SearchByPhone 通过手机号码查找用户
+func (dao *UserDAO) SearchByPhone(ctx context.Context, phone string) (User, error) {
+	var user User
+	err := dao.db.Where("phone = ?", phone).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}

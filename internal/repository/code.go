@@ -6,6 +6,12 @@ import (
 	"github.com/Linxhhh/webook/internal/repository/cache"
 )
 
+var (
+	ErrSendCodeTooMany = cache.ErrSendCodeTooMany
+	ErrVerifyCodeFailed = cache.ErrVerifyCodeFailed
+	ErrVerifyCodeTooMany = cache.ErrVerifyCodeTooMany
+)
+
 type CodeRepository struct {
 	cache *cache.CodeCache
 }

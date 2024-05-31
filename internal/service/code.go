@@ -9,6 +9,13 @@ import (
 	"github.com/Linxhhh/webook/internal/service/sms"
 )
 
+
+var (
+	ErrSendCodeTooMany = repository.ErrSendCodeTooMany
+	ErrVerifyCodeFailed = repository.ErrVerifyCodeFailed
+	ErrVerifyCodeTooMany = repository.ErrVerifyCodeTooMany
+)
+
 type CodeService struct {
 	repo  *repository.CodeRepository
 	sms   sms.Service
@@ -42,6 +49,11 @@ func (svc *CodeService) Send(ctx context.Context, biz string, phone string) erro
 		return err
 	}
 	return nil
+	
+	/*  本地测试
+	println(code)
+	return nil
+	*/
 }
 
 func (svc *CodeService) generateCode() string {

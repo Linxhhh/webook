@@ -64,9 +64,12 @@ func initRouter() *gin.Engine {
 func initUserRouter(db *gorm.DB, cmd *redis.Client, router *gin.Engine) {
 	ud := dao.NewUserDAO(db)
 	uc := cache.NewUserCache(cmd)
+	cc := cache.NewCodeCache(cmd)
 	ur := repository.NewUserRepository(ud, uc)
+	cr := repository.NewCodeRepository(cc)
 	us := service.NewUserService(ur)
-	hdl := app.NewUserHandler(us)
+	cs := service.NewCodeService(cr)
+	hdl := app.NewUserHandler(us, cs)
 	hdl.RegistryRouter(router)
 }
 
@@ -85,7 +88,7 @@ func initDB() *gorm.DB {
 
 func initCache() *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "locahost:6379",
+		Addr:     "localhost:6379",
 		Password: "",
 		DB:       0,
 	})
