@@ -59,29 +59,29 @@ func (hdl *UserHandler) SignUp(ctx *gin.Context) {
 	}
 	var req SignUpReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.String(200, "填写信息不完整")
+		res.FailWithMsg("参数错误", ctx)
 		return
 	}
 
 	// 校验邮箱
 	if ok, err := isValidEmail(req.Email); err != nil {
-		ctx.String(200, "系统错误")
+		res.FailWithMsg("系统错误", ctx)
 		return
 	} else if !ok {
-		ctx.String(200, "非法邮箱格式")
+		res.FailWithMsg("非法邮箱格式", ctx)
 		return
 	}
 
 	// 校验密码
 	if req.Password != req.ConfirmPassword {
-		ctx.String(200, "两次密码不一致")
+		res.FailWithMsg("两次密码不一致", ctx)
 		return
 	}
 	if ok, err := isValidPassword(req.Password); err != nil {
-		ctx.String(200, "系统错误")
+		res.FailWithMsg("系统错误", ctx)
 		return
 	} else if !ok {
-		ctx.String(200, "密码必须包含字母、数字、特殊字符，并且不少于八位")
+		res.FailWithMsg("密码必须包含字母、数字、特殊字符，并且不少于八位", ctx)
 		return
 	}
 
@@ -92,11 +92,11 @@ func (hdl *UserHandler) SignUp(ctx *gin.Context) {
 	})
 	switch err {
 	case nil:
-		ctx.String(200, "注册成功")
+		res.OKWithMsg("注册成功", ctx)
 	case service.ErrDuplicateEmailorPhone:
-		ctx.String(200, "邮箱冲突")
+		res.FailWithMsg("邮箱冲突", ctx)
 	default:
-		ctx.String(200, "系统错误")
+		res.FailWithMsg("系统错误", ctx)
 	}
 }
 
@@ -125,18 +125,18 @@ func (hdl *UserHandler) LoginBySession(ctx *gin.Context) {
 	}
 	var req LoginReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.String(200, "参数错误")
+		res.FailWithMsg("参数错误", ctx)
 		return
 	}
 
 	// 调用服务
 	user, err := hdl.svc.Login(ctx, req.Email, req.Password)
 	if err == service.ErrInvalidEmailOrPassword {
-		ctx.String(200, "邮箱或密码错误")
+		res.FailWithMsg("邮箱或密码错误", ctx)
 		return
 	}
 	if err != nil {
-		ctx.String(200, "系统错误")
+		res.FailWithMsg("系统错误", ctx)
 		return
 	}
 
@@ -145,10 +145,10 @@ func (hdl *UserHandler) LoginBySession(ctx *gin.Context) {
 	session.Set("userId", user.Id)
 	session.Options(sessions.Options{MaxAge: 3600})
 	if err = session.Save(); err != nil {
-		ctx.String(200, "系统错误")
+		res.FailWithMsg("系统错误", ctx)
 		return
 	}
-	ctx.String(200, "登录成功")
+	res.OKWithMsg("登录成功", ctx)
 }
 
 /*
@@ -212,10 +212,10 @@ func (hdl *UserHandler) SendSmsCode(ctx *gin.Context) {
 
 	// 校验手机号码
 	if ok, err := isValidPhone(req.Phone); err != nil {
-		ctx.String(200, "系统错误")
+		res.FailWithMsg("系统错误", ctx)
 		return
 	} else if !ok {
-		ctx.String(200, "非法手机号码")
+		res.FailWithMsg("非法手机号码", ctx)
 		return
 	}
 
