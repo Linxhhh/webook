@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -15,33 +16,28 @@ var (
 	ErrRecordNotFound        = gorm.ErrRecordNotFound
 )
 
-// User 数据库表结构
-type User struct {
-	Id           int64          `gorm:"primaryKey"`
-	Email        sql.NullString `gorm:"unique"`
-	Password     string
-	Phone        sql.NullString `gorm:"unique"`
-	NickName     string
-	Birthday     int64
-	Introduction string
-	CTime        int64 // 创建时间
-	UTime        int64 // 更新时间
+type UserDAO interface {
+	Insert(ctx context.Context, u User) error
+	SearchById(ctx context.Context, id int64) (User, error)
+	SearchByEmail(ctx context.Context, email string) (User, error)
+	SearchByPhone(ctx context.Context, phone string) (User, error)
+	Update(ctx context.Context, u User) error
 }
 
 // UserDAO 数据库存储实例
-type UserDAO struct {
+type GormUserDAO struct {
 	db *gorm.DB
 }
 
 // NewUserDAO 新建一个数据库存储实例
-func NewUserDAO(db *gorm.DB) *UserDAO {
-	return &UserDAO{
+func NewUserDAO(db *gorm.DB) UserDAO {
+	return &GormUserDAO{
 		db: db,
 	}
 }
 
 // Insert 往数据库 User 表中，插入一条新记录
-func (dao UserDAO) Insert(ctx context.Context, u User) error {
+func (dao GormUserDAO) Insert(ctx context.Context, u User) error {
 
 	// 存储毫秒数
 	now := time.Now().UnixMilli()
@@ -61,9 +57,9 @@ func (dao UserDAO) Insert(ctx context.Context, u User) error {
 }
 
 // SearchById 通过 id 查找用户
-func (dao *UserDAO) SearchById(ctx context.Context, id int64) (User, error) {
+func (dao *GormUserDAO) SearchById(ctx context.Context, id int64) (User, error) {
 	var user User
-	err := dao.db.Where(id).First(&user).Error
+	err := dao.db.WithContext(ctx).Where(id).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}
@@ -71,9 +67,9 @@ func (dao *UserDAO) SearchById(ctx context.Context, id int64) (User, error) {
 }
 
 // SearchByEmail 通过邮箱查找用户
-func (dao *UserDAO) SearchByEmail(ctx context.Context, email string) (User, error) {
+func (dao *GormUserDAO) SearchByEmail(ctx context.Context, email string) (User, error) {
 	var user User
-	err := dao.db.Where("email = ?", email).First(&user).Error
+	err := dao.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}
@@ -81,9 +77,9 @@ func (dao *UserDAO) SearchByEmail(ctx context.Context, email string) (User, erro
 }
 
 // SearchByPhone 通过手机号码查找用户
-func (dao *UserDAO) SearchByPhone(ctx context.Context, phone string) (User, error) {
+func (dao *GormUserDAO) SearchByPhone(ctx context.Context, phone string) (User, error) {
 	var user User
-	err := dao.db.Where("phone = ?", phone).First(&user).Error
+	err := dao.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}
@@ -91,19 +87,12 @@ func (dao *UserDAO) SearchByPhone(ctx context.Context, phone string) (User, erro
 }
 
 // Update 更新用户个人信息
-func (dao *UserDAO) Update(ctx context.Context, u User) error {
+func (dao *GormUserDAO) Update(ctx context.Context, u User) error {
 
-	// 查找用户
 	var user User
-	err := dao.db.Where(u.Id).First(&user).Error
-	if err == gorm.ErrRecordNotFound {
-		return ErrRecordNotFound
-	}
-	if err != nil {
-		return err
-	}
-
-	// 更新信息
+	if result := dao.db.WithContext(ctx).First(&user, User{Id: u.Id}); result.Error != nil {
+        return result.Error
+    }
 	if u.NickName != "" {
 		user.NickName = u.NickName
 	}
@@ -113,8 +102,20 @@ func (dao *UserDAO) Update(ctx context.Context, u User) error {
 	if u.Introduction != "" {
 		user.Introduction = u.Introduction
 	}
-	now := time.Now().UnixMilli()
-	user.UTime = now
-	err = dao.db.Save(&user).Error
-	return err
+	user.UTime = time.Now().UnixMilli()
+	log.Println(user)
+	return dao.db.WithContext(ctx).Save(&user).Error
+}
+
+// User 数据库表结构
+type User struct {
+	Id           int64          `gorm:"primaryKey"`
+	Email        sql.NullString `gorm:"unique"`
+	Password     string
+	Phone        sql.NullString `gorm:"unique"`
+	NickName     string
+	Birthday     int64
+	Introduction string
+	CTime        int64 // 创建时间
+	UTime        int64 // 更新时间
 }

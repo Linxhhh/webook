@@ -15,13 +15,18 @@ var (
 	ErrVerifyCodeTooMany = repository.ErrVerifyCodeTooMany
 )
 
+/* 
+这里不使用接口，是因为 <验证码服务> 的可替换性不高
+一般来说，可能替换的是具体的短信服务提供商，即 sms.Service
+*/
+
 type CodeService struct {
-	repo  *repository.CodeRepository
+	repo  repository.CodeRepository
 	sms   sms.Service
 	tplId string
 }
 
-func NewCodeService(repo *repository.CodeRepository, sms sms.Service) *CodeService {
+func NewCodeService(repo repository.CodeRepository, sms sms.Service) *CodeService {
 	return &CodeService{
 		repo:  repo,
 		sms:   sms,

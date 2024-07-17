@@ -12,7 +12,19 @@ func InitDB() *gorm.DB {
 		panic(err)
 	}
 
-	err = db.AutoMigrate(&dao.User{})
+	err = db.AutoMigrate(
+		// 用户模块
+		&dao.User{},
+
+		// 帖子模块
+		&dao.Article{},
+		&dao.PublishedArticle{},
+		&dao.Interaction{},
+		&dao.UserLike{},
+		&dao.UserCollection{},
+		&dao.FollowData{},
+		&dao.FollowRelation{},
+	)
 	if err != nil {
 		panic(err)
 	}

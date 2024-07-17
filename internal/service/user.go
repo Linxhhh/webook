@@ -14,11 +14,16 @@ var (
 	ErrInvalidEmailOrPassword = errors.New("邮箱或密码错误")
 )
 
+/* 
+这里不使用接口，是因为 <用户服务> 的可替换性不高
+一般来说，可能替换的是下层的数据存储方式，即 repository.UserRepository
+*/
+
 type UserService struct {
-	repo *repository.UserRepository
+	repo repository.UserRepository
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
+func NewUserService(repo repository.UserRepository) *UserService {
 	return &UserService{
 		repo: repo,
 	}

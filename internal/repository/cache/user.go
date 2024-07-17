@@ -14,24 +14,30 @@ const (
 	ErrKeyNotExist = redis.Nil
 )
 
-type UserCache struct {
+type UserCache interface {
+	Set(ctx context.Context, u domain.User) error
+	Get(ctx context.Context, id int64) (domain.User, error)
+	Del(ctx context.Context, id int64) error
+}
+
+type RedisUserCache struct {
 	cmd       redis.Cmdable
 	expiresAt time.Duration
 }
 
-func NewUserCache(cmd redis.Cmdable) *UserCache {
-	return &UserCache{
+func NewUserCache(cmd redis.Cmdable) UserCache {
+	return &RedisUserCache{
 		cmd:       cmd,
 		expiresAt: time.Minute * 15,
 	}
 }
 
-func (uc *UserCache) Key(id int64) string {
+func (uc *RedisUserCache) Key(id int64) string {
 	// 格式化 Key
 	return fmt.Sprintf("user:info:%d", id)
 }
 
-func (uc *UserCache) Set(ctx context.Context, u domain.User) error {
+func (uc *RedisUserCache) Set(ctx context.Context, u domain.User) error {
 	
 	// 序列化 -> []byte
 	val, err := json.Marshal(u)
@@ -44,7 +50,7 @@ func (uc *UserCache) Set(ctx context.Context, u domain.User) error {
 	return uc.cmd.Set(key, val, uc.expiresAt).Err()
 }
 
-func (uc *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
+func (uc *RedisUserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 	
 	// 获取 kv
 	key := uc.Key(id)
@@ -57,4 +63,11 @@ func (uc *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 	var u domain.User
 	err = json.Unmarshal([]byte(val), &u)
 	return u, err
+}
+
+func (uc *RedisUserCache) Del(ctx context.Context, id int64) error {
+	
+	// 获取 kv
+	key := uc.Key(id)
+	return uc.cmd.Del(key).Err()
 }

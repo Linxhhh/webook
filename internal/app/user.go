@@ -308,7 +308,7 @@ func (hdl *UserHandler) Edit(ctx *gin.Context) {
 	}
 	var req EditReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		res.FailWithMsg("系统错误", ctx)
+		res.FailWithMsg("参数错误", ctx)
 		return
 	}
 

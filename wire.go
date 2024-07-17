@@ -20,21 +20,35 @@ func InitWebServer() *gin.Engine {
 
 		// DAO
 		dao.NewUserDAO,
+		dao.NewArticleDAO,
+		dao.NewInteractionDAO,
+		dao.NewFollowDAO,
 
 		// Cache
 		cache.NewUserCache,
 		cache.NewCodeCache,
+		cache.NewArticleCache,
+		cache.NewInteractionCache,
+		cache.NewFollowCache,
 
 		// Repository
 		repository.NewUserRepository,
 		repository.NewCodeRepository,
+		repository.NewArticleRepository,
+		repository.NewInteractionRepository,
+		repository.NewFollowRepository,
 
 		// Service
 		service.NewUserService,
 		service.NewCodeService,
+		service.NewArticleService,
+		service.NewInteractionService,
+		service.NewFollowService,
 
 		// Handler
 		app.NewUserHandler,
+		app.NewArticleHandler,
+		app.NewFollowHandler,
 
 		// Webserver
 		ioc.InitMiddleware,

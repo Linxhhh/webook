@@ -21,22 +21,27 @@ var (
 	ErrVerifyCodeTooMany = errors.New("短信验证频繁")
 )
 
-type CodeCache struct {
+type CodeCache interface {
+	Set(ctx context.Context, biz, phone, code string) error
+	Verify(ctx context.Context, biz, phone, code string) error
+}
+
+type RedisCodeCache struct {
 	cmd redis.Cmdable
 }
 
-func NewCodeCache(cmd redis.Cmdable) *CodeCache {
-	return &CodeCache{
+func NewCodeCache(cmd redis.Cmdable) CodeCache {
+	return &RedisCodeCache{
 		cmd: cmd,
 	}
 }
 
-func (cc *CodeCache) Key(biz, phone string) string {
+func (cc *RedisCodeCache) Key(biz, phone string) string {
 	// 格式化 Key
 	return fmt.Sprintf("code:%s:%s", biz, phone)
 }
 
-func (cc *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
+func (cc *RedisCodeCache) Set(ctx context.Context, biz, phone, code string) error {
 	
 	res, err := cc.cmd.Eval(LuaSetCode, []string{cc.Key(biz, phone)}, code).Int()
 	if err != nil {
@@ -53,7 +58,7 @@ func (cc *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
 	}
 }
 
-func (cc *CodeCache) Verify(ctx context.Context, biz, phone, code string) error {
+func (cc *RedisCodeCache) Verify(ctx context.Context, biz, phone, code string) error {
 	
 	res, err := cc.cmd.Eval(LuaVerifyCode, []string{cc.Key(biz, phone)}, code).Int()
 	if err != nil {
