@@ -1,4 +1,4 @@
-version: "3"
+version: '3.8'
 
 services:
   mysql8:
@@ -8,10 +8,44 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
     volumes:
-      - ./script/mysql/:/docker-entrypoint-initdb.d/   # 初始化脚本
+      - ./script/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - 13316:3306   # 外部访问端口：13316
-  
+      - 13316:3306
+    networks:
+      - mysql-net
+
+  mysql8-slave1:
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password --read-only=ON --super-read-only
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_MASTER_HOST: mysql8
+      MYSQL_MASTER_USER: replicate
+      MYSQL_MASTER_PASSWORD: replicate_password
+    volumes:
+      - ./script/mysql/init_slave.sql:/docker-entrypoint-initdb.d/init_slave.sql
+    depends_on:
+      - mysql8
+    networks:
+      - mysql-net
+
+  mysql8-slave2:
+    image: mysql:8.0
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password --read-only=ON --super-read-only
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_MASTER_HOST: mysql8
+      MYSQL_MASTER_USER: replicate
+      MYSQL_MASTER_PASSWORD: replicate_password
+    volumes:
+      - ./script/mysql/init_slave.sql:/docker-entrypoint-initdb.d/init_slave.sql
+    depends_on:
+      - mysql8
+    networks:
+      - mysql-net
+
   redis:
     image: "bitnami/redis:latest"
     restart: always
@@ -19,3 +53,13 @@ services:
       - ALLOW_EMPTY_PASSWORD=yes
     ports:
       - '6379:6379'
+    networks:
+      - mysql-net
+
+volumes:
+  slave1_data:
+  slave2_data:
+
+networks:
+  mysql-net:
+    driver: bridge

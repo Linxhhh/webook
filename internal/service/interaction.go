@@ -44,7 +44,7 @@ func (svc *InteractionService) CancelCollect(ctx context.Context, biz string, bi
 后续优化：分页查询
 */
 func (svc *InteractionService) CollectionList(ctx context.Context, biz string, uid int64) ([]domain.Article, error) {
-	
+
 	// 获取收藏帖子的 aid
 	aids, err := svc.repo.GetCollectionList(ctx, biz, uid)
 	if err != nil {
@@ -81,30 +81,18 @@ func (svc *InteractionService) Get(ctx context.Context, biz string, bizId int64,
 	go func() {
 		defer wg.Done()
 		i.IsLiked, err = svc.repo.GetLike(ctx, biz, bizId, uid)
-		if err != nil {
-			errCh <- err // 发送错误到 channel
-		}
+		println(err)
 	}()
 
 	// 是否已经收藏
 	go func() {
 		defer wg.Done()
 		i.IsCollected, err = svc.repo.GetCollection(ctx, biz, bizId, uid)
-		if err != nil {
-			errCh <- err // 发送错误到 channel
-		}
+		println(err)
 	}()
 
 	wg.Wait()
-
-	// 检查协程中是否有错误（只需要记录第一个错误）
-	for err := range errCh {
-		if err != nil {
-			close(errCh)
-			return domain.Interaction{}, err
-		}
-	}
 	close(errCh)
 
-	return i, nil
+	return i, err
 }
