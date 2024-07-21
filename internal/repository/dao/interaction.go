@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"gorm.io/gorm"
@@ -28,19 +29,27 @@ type InteractionDAO interface {
 }
 
 type GORMInteractionDAO struct {
-	db *gorm.DB
+	master *gorm.DB
+	slaves []*gorm.DB
 }
 
-func NewInteractionDAO(db *gorm.DB) InteractionDAO {
+func NewInteractionDAO(m *gorm.DB, s []*gorm.DB) InteractionDAO {
 	return &GORMInteractionDAO{
-		db: db,
+		master: m,
+		slaves: s,
 	}
+}
+
+func (dao *GORMInteractionDAO) RandSalve() *gorm.DB {
+	rand.Seed(time.Now().UnixNano())
+    randomSlave := dao.slaves[rand.Intn(len(dao.slaves))]
+    return randomSlave
 }
 
 // Get 获取（阅读、点赞、收藏）的数据
 func (dao *GORMInteractionDAO) Get(ctx context.Context, biz string, id int64) (Interaction, error) {
 	var res Interaction
-	err := dao.db.WithContext(ctx).Where("biz = ? AND biz_id = ?", biz, id).First(&res).Error
+	err := dao.RandSalve().WithContext(ctx).Where("biz = ? AND biz_id = ?", biz, id).First(&res).Error
 	return res, err
 }
 
@@ -49,7 +58,7 @@ func (dao *GORMInteractionDAO) IncrReadCnt(ctx context.Context, biz string, bizI
 	now := time.Now().UnixMilli()
 
 	// upsert 语义
-	return dao.db.WithContext(ctx).Clauses(clause.OnConflict{
+	return dao.master.WithContext(ctx).Clauses(clause.OnConflict{
 		DoUpdates: clause.Assignments(map[string]interface{}{
 			"read_cnt": gorm.Expr("`read_cnt` + 1"),
 			"utime":    now,
@@ -65,8 +74,8 @@ func (dao *GORMInteractionDAO) IncrReadCnt(ctx context.Context, biz string, bizI
 
 // BatchIncrReadCnt 批量增加阅读量
 func (dao *GORMInteractionDAO) BatchIncrReadCnt(ctx context.Context, bizs []string, bizIds []int64) error {
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		txDAO := NewInteractionDAO(tx)
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		txDAO := NewInteractionDAO(tx, nil)
 		for i := 0; i < len(bizs); i++ {
 			err := txDAO.IncrReadCnt(ctx, bizs[i], bizIds[i])
 			if err != nil {
@@ -80,7 +89,7 @@ func (dao *GORMInteractionDAO) BatchIncrReadCnt(ctx context.Context, bizs []stri
 // GetLike 获取点赞信息（是否点赞）
 func (dao *GORMInteractionDAO) GetLike(ctx context.Context, biz string, id int64, uid int64) (UserLike, error) {
 	var res UserLike
-	err := dao.db.WithContext(ctx).
+	err := dao.RandSalve().WithContext(ctx).
 		Where("biz = ? AND biz_id = ? AND uid = ? AND status = ?", biz, id, uid, 1).
 		First(&res).Error
 	return res, err
@@ -91,7 +100,7 @@ func (dao *GORMInteractionDAO) InsertLike(ctx context.Context, biz string, id in
 	now := time.Now().UnixMilli()
 
 	// 开启事务
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 创建点赞记录（upsert 语义）
 		err := tx.Clauses(clause.OnConflict{
@@ -132,7 +141,7 @@ func (dao *GORMInteractionDAO) DeleteLike(ctx context.Context, biz string, id in
 	now := time.Now().UnixMilli()
 
 	// 开启事务
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 软删除用户点赞记录
 		err := tx.Model(&UserLike{}).
@@ -158,14 +167,14 @@ func (dao *GORMInteractionDAO) DeleteLike(ctx context.Context, biz string, id in
 // GetCollection 获取收藏信息（是否收藏）
 func (dao *GORMInteractionDAO) GetCollection(ctx context.Context, biz string, bizId int64, uid int64) (UserCollection, error) {
 	var res UserCollection
-	err := dao.db.WithContext(ctx).Where("biz = ? AND biz_id = ? AND uid = ?", biz, bizId, uid).First(&res).Error
+	err := dao.RandSalve().WithContext(ctx).Where("biz = ? AND biz_id = ? AND uid = ?", biz, bizId, uid).First(&res).Error
 	return res, err
 }
 
 // GetCollectionList 获取收藏列表
 func (dao *GORMInteractionDAO) GetCollectionList(ctx context.Context, biz string, uid int64) ([]UserCollection, error) {
 	var res []UserCollection
-	err := dao.db.WithContext(ctx).Where("biz = ? AND uid = ? AND status = 1", biz, uid).Find(&res).Error
+	err := dao.RandSalve().WithContext(ctx).Where("biz = ? AND uid = ? AND status = 1", biz, uid).Find(&res).Error
 	return res, err
 }
 
@@ -182,7 +191,7 @@ func (dao *GORMInteractionDAO) InsertCollection(ctx context.Context, biz string,
 	}
 
 	// 开启事务
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 创建记录
 		err := tx.Create(&c).Error
@@ -211,7 +220,7 @@ func (dao *GORMInteractionDAO) DeleteCollection(ctx context.Context, biz string,
 	now := time.Now().UnixMilli()
 
 	// 开启事务
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 软删除用户收藏记录
 		err := tx.Model(&UserCollection{}).

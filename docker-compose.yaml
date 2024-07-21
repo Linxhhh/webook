@@ -1,51 +1,56 @@
 version: '3.8'
-
 services:
-  mysql8:
-    image: mysql:8.0
+  mysql-master:
+    container_name: mysql-master 
+    image: mysql:5.7.31
     restart: always
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-    volumes:
-      - ./script/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - 13316:3306
-    networks:
-      - mysql-net
-
-  mysql8-slave1:
-    image: mysql:8.0
-    restart: always
-    command: --default-authentication-plugin=mysql_native_password --read-only=ON --super-read-only
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_MASTER_HOST: mysql8
-      MYSQL_MASTER_USER: replicate
-      MYSQL_MASTER_PASSWORD: replicate_password
+      - 13306:3306 
+    privileged: true
     volumes:
-      - ./script/mysql/init_slave.sql:/docker-entrypoint-initdb.d/init_slave.sql
-    depends_on:
-      - mysql8
-    networks:
-      - mysql-net
-
-  mysql8-slave2:
-    image: mysql:8.0
-    restart: always
-    command: --default-authentication-plugin=mysql_native_password --read-only=ON --super-read-only
+      # 这个只对mysql主从进行验证 没有持久化配置以及日志相关的映射
+      # - $PWD/master/conf/my.cnf:/etc/mysql/my.cnf
+      - ./script/mysql_master/my.cnf:/etc/mysql/my.cnf
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_MASTER_HOST: mysql8
-      MYSQL_MASTER_USER: replicate
-      MYSQL_MASTER_PASSWORD: replicate_password
-    volumes:
-      - ./script/mysql/init_slave.sql:/docker-entrypoint-initdb.d/init_slave.sql
-    depends_on:
-      - mysql8
+      MYSQL_ROOT_PASSWORD: "123456"
+    command: [
+        '--server-id=1',
+        '--log-bin=mysql-bin',
+        #'--binlog-ignore-db=mysql',
+        #'--sync_binlog = 1',
+        #'--slave-skip-errors = all',
+        '--character-set-server=utf8mb4',
+        '--collation-server=utf8mb4_general_ci',
+        '--max_connections=3000'
+    ]
     networks:
-      - mysql-net
-
+      - myweb
+      
+  mysql-slave:
+    container_name: mysql-slave 
+    image: mysql:5.7.31
+    restart: always
+    ports:
+      - 23306:3306 
+    privileged: true
+    volumes:
+      # 这个只对mysql主从进行验证 没有持久化配置以及日志相关的映射
+      # - $PWD/slave/conf/my.cnf:/etc/mysql/my.cnf
+      - ./script/mysql_slave/my.cnf:/etc/mysql/my.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+    command: [
+        '--server-id=2',
+        '--log-bin=mysql-bin',
+        #'--binlog-ignore-db=mysql',
+        #'--slave-skip-errors = all',
+        '--character-set-server=utf8mb4',
+        '--collation-server=utf8mb4_general_ci',
+        '--max_connections=3000'
+    ]
+    networks:
+      - myweb    
+  
   redis:
     image: "bitnami/redis:latest"
     restart: always
@@ -54,12 +59,8 @@ services:
     ports:
       - '6379:6379'
     networks:
-      - mysql-net
-
-volumes:
-  slave1_data:
-  slave2_data:
+      - myweb
 
 networks:
-  mysql-net:
+  myweb:
     driver: bridge

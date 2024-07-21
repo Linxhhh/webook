@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"gorm.io/gorm"
@@ -16,13 +17,21 @@ type FollowDAO interface {
 }
 
 type GormFollowDAO struct {
-	db *gorm.DB
+	master *gorm.DB
+	slaves []*gorm.DB
 }
 
-func NewFollowDAO(db *gorm.DB) FollowDAO {
+func NewFollowDAO(m *gorm.DB, s []*gorm.DB) FollowDAO {
 	return &GormFollowDAO{
-		db: db,
+		master: m,
+		slaves: s,
 	}
+}
+
+func (dao *GormFollowDAO) RandSalve() *gorm.DB {
+	rand.Seed(time.Now().UnixNano())
+    randomSlave := dao.slaves[rand.Intn(len(dao.slaves))]
+    return randomSlave
 }
 
 // InsertFollow 往数据库中插入一条记录
@@ -30,7 +39,7 @@ func (dao *GormFollowDAO) InsertFollow(ctx context.Context, follower_id, followe
 	now := time.Now().UnixMilli()
 
 	// 开启事务
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// upsert 语义
 		err := tx.WithContext(ctx).Clauses(clause.OnConflict{
@@ -87,10 +96,10 @@ func (dao *GormFollowDAO) DeleteFollow(ctx context.Context, follower_id, followe
 	now := time.Now().UnixMilli()
 
 	// 开启事务
-	return dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 软删除用户关注记录
-		err := dao.db.WithContext(ctx).
+		err := dao.master.WithContext(ctx).
 			Where("follower = ? AND followee = ?", follower_id, followee_id).
 			Updates(map[string]any{
 				"utime":  now,
@@ -124,14 +133,14 @@ func (dao *GormFollowDAO) DeleteFollow(ctx context.Context, follower_id, followe
 // GetFollowed 查询是否关注某人
 func (dao *GormFollowDAO) GetFollowed(ctx context.Context, follower_id, followee_id int64) (FollowRelation, error) {
 	var res FollowRelation
-	err := dao.db.WithContext(ctx).Where("follower = ? AND followee = ?", follower_id, followee_id).First(&res).Error
+	err := dao.RandSalve().WithContext(ctx).Where("follower = ? AND followee = ?", follower_id, followee_id).First(&res).Error
 	return res, err
 }
 
 // GetFollowData 获取关注数据（粉丝数，关注数）
 func (dao *GormFollowDAO) GetFollowData(ctx context.Context, uid int64) (FollowData, error) {
 	var res FollowData
-	err := dao.db.WithContext(ctx).Where("uid = ?", uid).First(&res).Error
+	err := dao.RandSalve().WithContext(ctx).Where("uid = ?", uid).First(&res).Error
 	return res, err
 }
 

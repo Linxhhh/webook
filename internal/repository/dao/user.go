@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
+	"math/rand"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -26,14 +26,23 @@ type UserDAO interface {
 
 // UserDAO 数据库存储实例
 type GormUserDAO struct {
-	db *gorm.DB
+	master *gorm.DB
+	slaves []*gorm.DB
 }
 
 // NewUserDAO 新建一个数据库存储实例
-func NewUserDAO(db *gorm.DB) UserDAO {
+func NewUserDAO(m *gorm.DB, s []*gorm.DB) UserDAO {
 	return &GormUserDAO{
-		db: db,
+		master: m,
+		slaves: s,
 	}
+}
+
+// RandSalve 随机获取从数据库
+func (dao *GormUserDAO) RandSalve() *gorm.DB {
+	rand.Seed(time.Now().UnixNano())
+    randomSlave := dao.slaves[rand.Intn(len(dao.slaves))]
+    return randomSlave
 }
 
 // Insert 往数据库 User 表中，插入一条新记录
@@ -45,7 +54,7 @@ func (dao GormUserDAO) Insert(ctx context.Context, u User) error {
 	u.UTime = now
 
 	// 插入新记录
-	err := dao.db.WithContext(ctx).Create(&u).Error
+	err := dao.master.WithContext(ctx).Create(&u).Error
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		const duplicateErr uint16 = 1062
 		if mysqlErr.Number == duplicateErr {
@@ -59,7 +68,7 @@ func (dao GormUserDAO) Insert(ctx context.Context, u User) error {
 // SearchById 通过 id 查找用户
 func (dao *GormUserDAO) SearchById(ctx context.Context, id int64) (User, error) {
 	var user User
-	err := dao.db.WithContext(ctx).Where(id).First(&user).Error
+	err := dao.RandSalve().WithContext(ctx).Where(id).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}
@@ -69,7 +78,7 @@ func (dao *GormUserDAO) SearchById(ctx context.Context, id int64) (User, error) 
 // SearchByEmail 通过邮箱查找用户
 func (dao *GormUserDAO) SearchByEmail(ctx context.Context, email string) (User, error) {
 	var user User
-	err := dao.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	err := dao.RandSalve().WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}
@@ -79,7 +88,7 @@ func (dao *GormUserDAO) SearchByEmail(ctx context.Context, email string) (User, 
 // SearchByPhone 通过手机号码查找用户
 func (dao *GormUserDAO) SearchByPhone(ctx context.Context, phone string) (User, error) {
 	var user User
-	err := dao.db.WithContext(ctx).Where("phone = ?", phone).First(&user).Error
+	err := dao.RandSalve().WithContext(ctx).Where("phone = ?", phone).First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return user, ErrRecordNotFound
 	}
@@ -90,7 +99,7 @@ func (dao *GormUserDAO) SearchByPhone(ctx context.Context, phone string) (User, 
 func (dao *GormUserDAO) Update(ctx context.Context, u User) error {
 
 	var user User
-	if result := dao.db.WithContext(ctx).First(&user, User{Id: u.Id}); result.Error != nil {
+	if result := dao.master.WithContext(ctx).First(&user, User{Id: u.Id}); result.Error != nil {
         return result.Error
     }
 	if u.NickName != "" {
@@ -103,8 +112,7 @@ func (dao *GormUserDAO) Update(ctx context.Context, u User) error {
 		user.Introduction = u.Introduction
 	}
 	user.UTime = time.Now().UnixMilli()
-	log.Println(user)
-	return dao.db.WithContext(ctx).Save(&user).Error
+	return dao.master.WithContext(ctx).Save(&user).Error
 }
 
 // User 数据库表结构

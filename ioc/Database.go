@@ -6,17 +6,21 @@ import (
 	"gorm.io/gorm"
 )
 
-func InitDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/webook"))
+func InitDB() (master *gorm.DB, slaves []*gorm.DB) {
+	master, err := gorm.Open(mysql.Open("root:123456@tcp(localhost:13306)/webook"))
 	if err != nil {
 		panic(err)
 	}
 
-	err = db.AutoMigrate(
-		// 用户模块
-		&dao.User{},
+	s1, err := gorm.Open(mysql.Open("root:123456@tcp(localhost:23306)/webook"))
+	if err != nil {
+		panic(err)
+	}
 
-		// 帖子模块
+	slaves = append(slaves, s1)
+
+	err = master.AutoMigrate(
+		&dao.User{},
 		&dao.Article{},
 		&dao.PublishedArticle{},
 		&dao.Interaction{},
@@ -28,5 +32,6 @@ func InitDB() *gorm.DB {
 	if err != nil {
 		panic(err)
 	}
-	return db
+
+	return
 }

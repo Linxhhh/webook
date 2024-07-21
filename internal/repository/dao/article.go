@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,14 +22,23 @@ type ArticleDAO interface {
 }
 
 type GormArticleDAO struct {
-	db *gorm.DB
+	master *gorm.DB
+	slaves []*gorm.DB
 }
 
 // NewArticleDAO 新建一个数据库存储实例
-func NewArticleDAO(db *gorm.DB) ArticleDAO {
+func NewArticleDAO(m *gorm.DB, s []*gorm.DB) ArticleDAO {
 	return &GormArticleDAO{
-		db: db,
+		master: m,
+		slaves: s,
 	}
+}
+
+// RandSalve 随机获取从数据库
+func (dao *GormArticleDAO) RandSalve() *gorm.DB {
+	rand.Seed(time.Now().UnixNano())
+    randomSlave := dao.slaves[rand.Intn(len(dao.slaves))]
+    return randomSlave
 }
 
 // Insert 往数据库 Article 表中，插入一条新记录
@@ -40,7 +50,7 @@ func (dao *GormArticleDAO) Insert(ctx context.Context, article Article) (int64, 
 	article.Utime = now
 
 	// 插入新记录
-	err := dao.db.WithContext(ctx).Create(&article).Error
+	err := dao.master.WithContext(ctx).Create(&article).Error
 	return article.Id, err
 }
 
@@ -49,7 +59,7 @@ func (dao *GormArticleDAO) Update(ctx context.Context, article Article) error {
 
 	// Gorm 在更新时，会忽略为空值的字段
 	now := time.Now().UnixMilli()
-	res := dao.db.WithContext(ctx).Model(&article).
+	res := dao.master.WithContext(ctx).Model(&article).
 		Where("id = ? AND author_id = ?", article.Id, article.AuthorId).Updates(map[string]any{
 		"title":   article.Title,
 		"content": article.Content,
@@ -70,7 +80,7 @@ func (dao *GormArticleDAO) Update(ctx context.Context, article Article) error {
 func (dao *GormArticleDAO) Sync(ctx context.Context, article Article) (int64, error) {
 
 	// 使用事务
-	err := dao.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		var err error
 
@@ -119,7 +129,7 @@ func (dao *GormArticleDAO) SyncStatus(ctx context.Context, uid int64, aid int64,
 	now := time.Now().UnixMilli()
 
 	// 使用事务
-	err := dao.db.Transaction(func(tx *gorm.DB) error {
+	err := dao.master.Transaction(func(tx *gorm.DB) error {
 
 		// 撤销制作库的帖子
 		result := tx.Model(&Article{}).Where("id = ? AND author_id = ?", aid, uid).Updates(map[string]any{
@@ -145,21 +155,21 @@ func (dao *GormArticleDAO) SyncStatus(ctx context.Context, uid int64, aid int64,
 // GetListByAuthor 获取作者的制作库帖子列表
 func (dao *GormArticleDAO) GetListByAuthor(ctx context.Context, uid int64, offset, limit int) ([]Article, error) {
 	var arts []Article
-	err := dao.db.WithContext(ctx).Where("author_id = ?", uid).Offset(offset).Limit(limit).Order("utime DESC").Find(&arts).Error
+	err := dao.RandSalve().WithContext(ctx).Where("author_id = ?", uid).Offset(offset).Limit(limit).Order("utime DESC").Find(&arts).Error
 	return arts, err
 }
 
 // GetById 获取制作库中指定的帖子信息
 func (dao *GormArticleDAO) GetById(ctx context.Context, aid int64) (Article, error) {
 	var art Article
-	err := dao.db.WithContext(ctx).Where("id = ?", aid).First(&art).Error
+	err := dao.RandSalve().WithContext(ctx).Where("id = ?", aid).First(&art).Error
 	return art, err
 }
 
 // GetPubById 获取线上库中指定的帖子信息
 func (dao *GormArticleDAO) GetPubById(ctx context.Context, aid int64) (PublishedArticle, error) {
 	var art PublishedArticle
-	err := dao.db.WithContext(ctx).Where("id = ?", aid).First(&art).Error
+	err := dao.RandSalve().WithContext(ctx).Where("id = ?", aid).First(&art).Error
 	return art, err
 }
 
