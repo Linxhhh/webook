@@ -294,7 +294,7 @@ func (hdl *ArticleHandler) Collect(ctx *gin.Context) {
 }
 
 func (hdl *ArticleHandler) CollectionList(ctx *gin.Context) {
-	
+
 	// 获取用户 Token
 	_claims, _ := ctx.Get("claims")
 	claims := _claims.(*jwts.CustomClaims)
@@ -309,7 +309,7 @@ func (hdl *ArticleHandler) CollectionList(ctx *gin.Context) {
 }
 
 func (hdl *ArticleHandler) Interaction(ctx *gin.Context) {
-	
+
 	// 绑定参数
 	aid, err := strconv.ParseInt(ctx.Query("id"), 10, 64)
 	if aid == 0 || err != nil {
@@ -329,6 +329,18 @@ func (hdl *ArticleHandler) Interaction(ctx *gin.Context) {
 	}
 
 	// 返回响应
-	res.OKWithData(i, ctx)
+	type Resp struct {
+		ReadCnt     int64 `json:"readCnt"`
+		LikeCnt     int64 `json:"likeCnt"`
+		CollectCnt  int64 `json:"collectCnt"`
+		IsLiked     bool  `json:"isLiked"`
+		IsCollected bool  `json:"isCollected"`
+	}
+	res.OKWithData(Resp{
+		ReadCnt:     i.ReadCnt,
+		LikeCnt:     i.LikeCnt,
+		CollectCnt:  i.CollectCnt,
+		IsLiked:     i.IsLiked,
+		IsCollected: i.IsCollected,
+	}, ctx)
 }
-

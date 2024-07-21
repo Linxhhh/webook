@@ -6,7 +6,7 @@ type Interaction struct {
 	Biz         string `json:"biz"`
 	BizId       int64  `json:"bizId"`
 	ReadCnt     int64  `json:"readCnt"`
-	LikeCnt     int64  `json:"LikeCnt"`
+	LikeCnt     int64  `json:"likeCnt"`
 	CollectCnt  int64  `json:"collectCnt"`
 
 	// 上面数据是一篇帖子的公共数据

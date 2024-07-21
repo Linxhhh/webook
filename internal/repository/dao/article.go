@@ -63,6 +63,7 @@ func (dao *GormArticleDAO) Update(ctx context.Context, article Article) error {
 		Where("id = ? AND author_id = ?", article.Id, article.AuthorId).Updates(map[string]any{
 		"title":   article.Title,
 		"content": article.Content,
+		"status": article.Status,
 		"utime":   now,
 	})
 	if res.Error != nil {

@@ -87,7 +87,16 @@ func (hdl *FollowHandler) FollowData(ctx *gin.Context) {
 			return
 		}
 	}
-  
+
 	// 返回响应
-	res.OKWithData(data, ctx)
+	type Resp struct {
+		Followers  int64 `json:"followers"`  // 粉丝数量
+		Followees  int64 `json:"followees"`  // 关注数量
+		IsFollowed bool  `json:"isFollowed"` // 是否已关注
+	}
+	res.OKWithData(Resp{
+		Followers:  data.Followers,
+		Followees:  data.Followees,
+		IsFollowed: data.IsFollowed,
+	}, ctx)
 }
