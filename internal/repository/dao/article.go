@@ -19,6 +19,7 @@ type ArticleDAO interface {
 	GetListByAuthor(ctx context.Context, uid int64, offset, limit int) ([]Article, error)
 	GetById(ctx context.Context, aid int64) (Article, error)
 	GetPubById(ctx context.Context, aid int64) (PublishedArticle, error) 
+	GetPubList(ctx context.Context, startTime time.Time, offset, limit int) ([]PublishedArticle, error)
 }
 
 type GormArticleDAO struct {
@@ -172,6 +173,13 @@ func (dao *GormArticleDAO) GetPubById(ctx context.Context, aid int64) (Published
 	var art PublishedArticle
 	err := dao.RandSalve().WithContext(ctx).Where("id = ?", aid).First(&art).Error
 	return art, err
+}
+
+func (dao *GormArticleDAO) GetPubList(ctx context.Context, startTime time.Time, offset, limit int) ([]PublishedArticle, error) {
+	var res []PublishedArticle
+	err := dao.RandSalve().WithContext(ctx).Order("utime DESC").
+		Where("utime > ?", startTime.UnixMilli()).Limit(limit).Offset(offset).Find(&res).Error
+	return res, err
 }
 
 // Article 制作库

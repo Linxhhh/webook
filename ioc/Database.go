@@ -28,6 +28,8 @@ func InitDB() (master *gorm.DB, slaves []*gorm.DB) {
 		&dao.UserCollection{},
 		&dao.FollowData{},
 		&dao.FollowRelation{},
+		&dao.FeedPullEvent{},
+		&dao.FeedPushEvent{},
 	)
 	if err != nil {
 		panic(err)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/Linxhhh/webook/internal/domain"
 	"github.com/Linxhhh/webook/internal/repository"
@@ -11,13 +12,13 @@ import (
 var ErrIncorrectArticleorAuthor = repository.ErrIncorrectArticleorAuthor
 
 type ArticleService struct {
-	repo repository.ArticleRepository
+	repo     repository.ArticleRepository
 	userRepo repository.UserRepository
 }
 
 func NewArticleService(repo repository.ArticleRepository, userRepo repository.UserRepository) *ArticleService {
 	return &ArticleService{
-		repo: repo,
+		repo:     repo,
 		userRepo: userRepo,
 	}
 }
@@ -66,4 +67,10 @@ func (as *ArticleService) PubDetail(ctx context.Context, aid int64) (domain.Arti
 	}
 	art.AuthorName = user.NickName
 	return art, nil
+}
+
+func (as *ArticleService) PubList(ctx context.Context, uid int64, limit, offset int) ([]domain.Article, error) {
+	// 获取一周内的帖子
+	startTime := time.Now().Add(-7 * 24 * time.Hour)
+	return as.repo.GetPubList(ctx, startTime, offset, limit)
 }

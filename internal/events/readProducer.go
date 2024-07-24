@@ -5,12 +5,6 @@ import (
 	"github.com/IBM/sarama"
 )
 
-const TopicReadEvent = "article_read"
-
-type Producer interface {
-	ProduceReadEvent(evt ReadEvent) error
-}
-
 type ReadEvent struct {
 	Aid int64
 	Uid int64
@@ -21,15 +15,15 @@ type BatchReadEvent struct {
 	Uids []int64
 }
 
-type SaramaSyncProducer struct {
+type SaramaReadProducer struct {
 	producer sarama.SyncProducer
 }
 
-func NewSaramaSyncProducer(producer sarama.SyncProducer) Producer {
-	return &SaramaSyncProducer{producer: producer}
+func NewSaramaSyncProducer(producer sarama.SyncProducer) *SaramaReadProducer {
+	return &SaramaReadProducer{producer: producer}
 }
 
-func (s *SaramaSyncProducer) ProduceReadEvent(evt ReadEvent) error {
+func (s *SaramaReadProducer) ProduceEvent(evt ReadEvent) error {
 	val, err := json.Marshal(evt)
 	if err != nil {
 		return err

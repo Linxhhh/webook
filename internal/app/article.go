@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/Linxhhh/webook/internal/domain"
+	"github.com/Linxhhh/webook/internal/events"
 	"github.com/Linxhhh/webook/internal/service"
 	"github.com/Linxhhh/webook/pkg/jwts"
 	"github.com/Linxhhh/webook/pkg/res"
@@ -17,13 +18,15 @@ var ErrIncorrectArticleorAuthor = service.ErrIncorrectArticleorAuthor
 type ArticleHandler struct {
 	svc      *service.ArticleService
 	interSvc *service.InteractionService
+	producer *events.ArticleEventProducer
 	biz      string
 }
 
-func NewArticleHandler(svc *service.ArticleService, interSvc *service.InteractionService) *ArticleHandler {
+func NewArticleHandler(svc *service.ArticleService, interSvc *service.InteractionService, producer *events.ArticleEventProducer) *ArticleHandler {
 	return &ArticleHandler{
 		svc:      svc,
 		interSvc: interSvc,
+		producer: producer,
 		biz:      "article",
 	}
 }
@@ -39,6 +42,7 @@ func (hdl *ArticleHandler) RegistryRouter(router *gin.Engine) {
 
 	// 读者接口
 	pg := router.Group("pub")
+	pg.GET("list", hdl.PubList)
 	pg.GET("detail", hdl.PubDetail, hdl.Read)
 	pg.POST("like", hdl.Like)
 	pg.POST("collect", hdl.Collect)
@@ -97,6 +101,15 @@ func (hdl *ArticleHandler) Publish(ctx *gin.Context) {
 	if err != nil {
 		res.FailWithMsg("系统错误", ctx)
 		return
+	}
+
+	// 异步事件 —— feed 流推送
+	if err = hdl.producer.ProduceEvent(events.ArticleEvent{
+		Uid:   claims.UserId,
+		Aid:   aid,
+		Title: req.Title,
+	}); err != nil {
+		res.FailWithMsg("异步事件生成错误", ctx)
 	}
 	res.OKWithData(gin.H{"article_id": aid}, ctx)
 }
@@ -343,4 +356,36 @@ func (hdl *ArticleHandler) Interaction(ctx *gin.Context) {
 		IsLiked:     i.IsLiked,
 		IsCollected: i.IsCollected,
 	}, ctx)
+}
+
+func (hdl *ArticleHandler) PubList(ctx *gin.Context) {
+
+	// limit and offset
+	type Req struct {
+		Limit  int `json:"limit"`
+		Offset int `json:"offset"`
+	}
+	var req Req
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		res.FailWithMsg("参数错误", ctx)
+		return
+	}
+
+	// 获取用户 Token
+	_claims, _ := ctx.Get("claims")
+	claims := _claims.(*jwts.CustomClaims)
+
+
+	// 调用下层服务
+	list, err := hdl.svc.PubList(ctx, claims.UserId, req.Limit, req.Offset)
+	if err != nil {
+		res.FailWithMsg("获取帖子失败", ctx)
+		return
+	}
+	if len(list) == 0 {
+		res.OKWithMsg("目前没有新帖子", ctx)
+		return
+	}
+	res.OKWithData(list, ctx)
 }

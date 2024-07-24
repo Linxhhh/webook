@@ -14,6 +14,8 @@ type FollowRepository interface {
 	CancelFollow(ctx context.Context, follower_id, followee_id int64) error
 	GetFollowed(ctx context.Context, follower_id, followee_id int64) (bool, error)
 	GetFollowData(ctx context.Context, uid int64) (domain.FollowData, error)
+	GetFolloweeList(ctx context.Context, follower_id, limit, offest int64) ([]domain.FollowRelation, error)
+	GetFollowerList(ctx context.Context, followee_id, limit, offest int64) ([]domain.FollowRelation, error)
 }
 
 type CacheFollowRepository struct {
@@ -73,4 +75,46 @@ func (repo *CacheFollowRepository) GetFollowData(ctx context.Context, uid int64)
 	}()
 
 	return data, err
+}
+
+func (repo *CacheFollowRepository) GetFolloweeList(ctx context.Context, follower_id, limit, offest int64) ([]domain.FollowRelation, error) {
+	
+	// 查询缓存（待补充）
+
+	// 查询数据库
+	list, err := repo.dao.GetFolloweeList(ctx, follower_id, limit, offest)
+	if err != nil {
+		return []domain.FollowRelation{}, err
+	}
+
+	// 类型转换
+	followeeList := make([]domain.FollowRelation, 0, len(list))
+	for _, elem := range list {
+		followeeList = append(followeeList, domain.FollowRelation{
+			Follower: elem.Follower,
+			Followee: elem.Followee,
+		})
+	}
+	return followeeList, err
+}
+
+func (repo *CacheFollowRepository) GetFollowerList(ctx context.Context, followee_id, limit, offest int64) ([]domain.FollowRelation, error) {
+	
+	// 查询缓存（待补充）
+
+	// 查询数据库
+	list, err := repo.dao.GetFollowerList(ctx, followee_id, limit, offest)
+	if err != nil {
+		return []domain.FollowRelation{}, err
+	}
+
+	// 类型转换
+	followeeList := make([]domain.FollowRelation, 0, len(list))
+	for _, elem := range list {
+		followeeList = append(followeeList, domain.FollowRelation{
+			Follower: elem.Follower,
+			Followee: elem.Followee,
+		})
+	}
+	return followeeList, err
 }

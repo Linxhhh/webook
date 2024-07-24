@@ -5,7 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func InitWebServer(halFunc []gin.HandlerFunc, userHdl *app.UserHandler, artHdl *app.ArticleHandler, followHdl *app.FollowHandler) *gin.Engine {
+func InitEngine(halFunc []gin.HandlerFunc, userHdl *app.UserHandler, artHdl *app.ArticleHandler, followHdl *app.FollowHandler) *gin.Engine {
 	router := gin.Default()
 	router.Use(halFunc...)
 	userHdl.RegistryRouter(router)

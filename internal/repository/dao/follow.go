@@ -14,6 +14,8 @@ type FollowDAO interface {
 	DeleteFollow(ctx context.Context, follower_id, followee_id int64) error
 	GetFollowed(ctx context.Context, follower_id, followee_id int64) (FollowRelation, error)
 	GetFollowData(ctx context.Context, uid int64) (FollowData, error)
+	GetFolloweeList(ctx context.Context, follower_id, limit, offest int64) ([]FollowRelation, error)
+	GetFollowerList(ctx context.Context, followee_id, limit, offest int64) ([]FollowRelation, error)
 }
 
 type GormFollowDAO struct {
@@ -144,10 +146,28 @@ func (dao *GormFollowDAO) GetFollowData(ctx context.Context, uid int64) (FollowD
 	return res, err
 }
 
+// GetFolloweeList 获取关注列表
+func (dao *GormFollowDAO) GetFolloweeList(ctx context.Context, follower_id, limit, offest int64) ([]FollowRelation, error) {
+	var res []FollowRelation
+	// 使用联合索引 "follower_followee"
+	err := dao.RandSalve().WithContext(ctx).Select("follower, followee").
+		Where("follower = ? AND status = 1", follower_id).Limit(int(limit)).Offset(int(offest)).Find(&res).Error
+	return res, err
+}
+
+// GetFollowerList 获取粉丝列表
+func (dao *GormFollowDAO) GetFollowerList(ctx context.Context, followee_id, limit, offest int64) ([]FollowRelation, error) {
+	var res []FollowRelation
+	// 使用联合索引 "follower_followee"
+	err := dao.RandSalve().WithContext(ctx).Select("follower, followee").
+		Where("followee = ? AND status = 1", followee_id).Limit(int(limit)).Offset(int(offest)).Find(&res).Error
+	return res, err
+}
+
 type FollowRelation struct {
 	Id       int64 `gorm:"primaryKey"`
-	Follower int64 // 粉丝
-	Followee int64 // 博主
+	Follower int64 `gorm:"not null;uniqueIndex:follower_followee"`// 粉丝
+	Followee int64 `gorm:"not null;uniqueIndex:follower_followee"`// 博主
 	Status   bool
 	Ctime    int64
 	Utime    int64
