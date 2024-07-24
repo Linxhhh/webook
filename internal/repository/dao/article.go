@@ -175,6 +175,7 @@ func (dao *GormArticleDAO) GetPubById(ctx context.Context, aid int64) (Published
 	return art, err
 }
 
+// GetPubList 获取首页内容
 func (dao *GormArticleDAO) GetPubList(ctx context.Context, startTime time.Time, offset, limit int) ([]PublishedArticle, error) {
 	var res []PublishedArticle
 	err := dao.RandSalve().WithContext(ctx).Order("utime DESC").

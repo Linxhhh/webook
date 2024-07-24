@@ -14,8 +14,8 @@ type FollowDAO interface {
 	DeleteFollow(ctx context.Context, follower_id, followee_id int64) error
 	GetFollowed(ctx context.Context, follower_id, followee_id int64) (FollowRelation, error)
 	GetFollowData(ctx context.Context, uid int64) (FollowData, error)
-	GetFolloweeList(ctx context.Context, follower_id, limit, offest int64) ([]FollowRelation, error)
-	GetFollowerList(ctx context.Context, followee_id, limit, offest int64) ([]FollowRelation, error)
+	GetFolloweeList(ctx context.Context, follower_id int64, limit, offset int) ([]FollowRelation, error)
+	GetFollowerList(ctx context.Context, followee_id int64, limit, offset int) ([]FollowRelation, error)
 }
 
 type GormFollowDAO struct {
@@ -147,20 +147,20 @@ func (dao *GormFollowDAO) GetFollowData(ctx context.Context, uid int64) (FollowD
 }
 
 // GetFolloweeList 获取关注列表
-func (dao *GormFollowDAO) GetFolloweeList(ctx context.Context, follower_id, limit, offest int64) ([]FollowRelation, error) {
+func (dao *GormFollowDAO) GetFolloweeList(ctx context.Context, follower_id int64, limit, offset int) ([]FollowRelation, error) {
 	var res []FollowRelation
 	// 使用联合索引 "follower_followee"
 	err := dao.RandSalve().WithContext(ctx).Select("follower, followee").
-		Where("follower = ? AND status = 1", follower_id).Limit(int(limit)).Offset(int(offest)).Find(&res).Error
+		Where("follower = ? AND status = 1", follower_id).Limit(limit).Offset(offset).Find(&res).Error
 	return res, err
 }
 
 // GetFollowerList 获取粉丝列表
-func (dao *GormFollowDAO) GetFollowerList(ctx context.Context, followee_id, limit, offest int64) ([]FollowRelation, error) {
+func (dao *GormFollowDAO) GetFollowerList(ctx context.Context, followee_id int64, limit, offset int) ([]FollowRelation, error) {
 	var res []FollowRelation
 	// 使用联合索引 "follower_followee"
 	err := dao.RandSalve().WithContext(ctx).Select("follower, followee").
-		Where("followee = ? AND status = 1", followee_id).Limit(int(limit)).Offset(int(offest)).Find(&res).Error
+		Where("followee = ? AND status = 1", followee_id).Limit(limit).Offset(offset).Find(&res).Error
 	return res, err
 }
 

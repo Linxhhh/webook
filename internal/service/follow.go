@@ -33,8 +33,14 @@ func (svc *FollowService) GetFollowed(ctx context.Context, follower_id, followee
 	return svc.repo.GetFollowed(ctx, follower_id, followee_id)
 }
 
-/*
-func (svc *FollowService) GetFolloweeList(ctx context.Context, follower_id, limit, offset int64) ([]domain.User, error) {
-	list, err := svc.repo.GetFolloweeList(ctx, follower_id, limit, offset)
+func (svc *FollowService) GetFolloweeList(ctx context.Context, follower_id int64, page, pageSize int) ([]domain.FollowRelation, error) {
+	limit := pageSize
+	offset := (page - 1) * pageSize
+	return svc.repo.GetFolloweeList(ctx, follower_id, limit, offset)
 }
-*/
+
+func (svc *FollowService) GetFollowerList(ctx context.Context, followee_id int64, page, pageSize int) ([]domain.FollowRelation, error) {
+	limit := pageSize
+	offset := (page - 1) * pageSize
+	return svc.repo.GetFollowerList(ctx, followee_id, limit, offset)
+}

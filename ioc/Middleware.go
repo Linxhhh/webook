@@ -1,6 +1,7 @@
 package ioc
 
 import (
+	"net/http"
 	"strings"
 	"time"
 
@@ -18,17 +19,35 @@ func InitMiddleware() []gin.HandlerFunc {
 		cors.New(cors.Config{
 			AllowCredentials: true,
 			AllowHeaders:     []string{"Content-Type", "jwt-token"},
-			ExposeHeaders:    []string{"jwt-token"},
+			ExposeHeaders:    []string{"jwt-token", "Content-Length", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Content-Type",},
 			AllowOriginFunc: func(origin string) bool {
 				// 开发环境下允许
 				if strings.HasPrefix(origin, "http://localhost") {
+					return true
+				}
+				if strings.HasPrefix(origin, "http://127.0.0.1") {
 					return true
 				}
 				return strings.Contains(origin, "webook.com")
 			},
 			MaxAge: 12 * time.Hour,
 		}),
+
+		// 处理 Options
+		handleOptions(),
 	}
+}
+
+
+// 处理 OPTIONS 请求
+func handleOptions() gin.HandlerFunc {
+    return func(c *gin.Context) {
+       if c.Request.Method == "OPTIONS" {
+          c.AbortWithStatus(http.StatusNoContent)
+          return
+       }
+       c.Next()
+    }
 }
 
 /* 注册 Session 会话中间件

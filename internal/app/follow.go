@@ -24,6 +24,8 @@ func (hdl *FollowHandler) RegistryRouter(router *gin.Engine) {
 	ur := router.Group("userRelation")
 	ur.POST("follow", hdl.Follow)
 	ur.GET("follow", hdl.FollowData)
+	ur.GET("followees", hdl.FolloweeList)
+	ur.GET("followers", hdl.FollowerList)
 }
 
 func (hdl *FollowHandler) Follow(ctx *gin.Context) {
@@ -99,4 +101,63 @@ func (hdl *FollowHandler) FollowData(ctx *gin.Context) {
 		Followees:  data.Followees,
 		IsFollowed: data.IsFollowed,
 	}, ctx)
+}
+
+
+// FolloweeList 获取关注列表
+func (hdl *FollowHandler) FolloweeList(ctx *gin.Context) {
+
+	// 绑定参数
+	type ListReq struct {
+		Page     int `json:"page"`
+		PageSize int `json:"pageSize"`
+	}
+	var req ListReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res.FailWithMsg("参数错误", ctx)
+		return
+	}
+
+	// 获取用户 Token
+	_claims, _ := ctx.Get("claims")
+	claims := _claims.(*jwts.CustomClaims)
+
+	// 调用下层服务
+	articleList, err := hdl.svc.GetFolloweeList(ctx, claims.UserId, req.Page, req.PageSize)
+	if err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 返回响应
+	res.OKWithData(articleList, ctx)
+}
+
+// FollowerList 获取粉丝列表
+func (hdl *FollowHandler) FollowerList(ctx *gin.Context) {
+
+	// 绑定参数
+	type ListReq struct {
+		Page     int `json:"page"`
+		PageSize int `json:"pageSize"`
+	}
+	var req ListReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		res.FailWithMsg("参数错误", ctx)
+		return
+	}
+
+	// 获取用户 Token
+	_claims, _ := ctx.Get("claims")
+	claims := _claims.(*jwts.CustomClaims)
+
+	// 调用下层服务
+	articleList, err := hdl.svc.GetFollowerList(ctx, claims.UserId, req.Page, req.PageSize)
+	if err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 返回响应
+	res.OKWithData(articleList, ctx)
 }
