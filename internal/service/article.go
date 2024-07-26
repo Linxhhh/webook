@@ -40,6 +40,10 @@ func (as *ArticleService) Withdraw(ctx context.Context, uid int64, aid int64) er
 	return as.repo.SyncStatus(ctx, uid, aid, domain.ArticleStatusPrivate)
 }
 
+func (as *ArticleService) Count(ctx context.Context, uid int64) (int64, error) {
+	return as.repo.CountByAuthor(ctx, uid)
+}
+
 func (as *ArticleService) List(ctx context.Context, uid int64, page, pageSize int) ([]domain.ArticleListElem, error) {
 	limit := pageSize
 	offset := (page - 1) * pageSize

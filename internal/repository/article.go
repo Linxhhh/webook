@@ -16,6 +16,7 @@ type ArticleRepository interface {
 	Update(ctx context.Context, article domain.Article) error
 	Sync(ctx context.Context, article domain.Article) (int64, error)
 	SyncStatus(ctx context.Context, uid int64, aid int64, status domain.ArticleStatus) error
+	CountByAuthor(ctx context.Context, uid int64) (int64, error)
 	GetListByAuthor(ctx context.Context, uid int64, offset, limit int) ([]domain.ArticleListElem, error)
 	GetById(ctx context.Context, aid int64) (domain.Article, error)
 	GetPubById(ctx context.Context, aid int64) (domain.Article, error)
@@ -95,6 +96,10 @@ func (repo *CacheArticleRepository) SyncStatus(ctx context.Context, uid int64, a
 		repo.cache.DelFirstPage(ctx, uid)
 	}
 	return err
+}
+
+func (repo *CacheArticleRepository) CountByAuthor(ctx context.Context, uid int64) (int64, error) {
+	return repo.dao.CountByAuthor(ctx, uid)
 }
 
 func (repo *CacheArticleRepository) GetListByAuthor(ctx context.Context, uid int64, offset, limit int) ([]domain.ArticleListElem, error) {

@@ -37,6 +37,7 @@ func (hdl *ArticleHandler) RegistryRouter(router *gin.Engine) {
 	ag.POST("edit", hdl.Edit)
 	ag.POST("publish", hdl.Publish)
 	ag.DELETE("withdraw", hdl.Withdraw)
+	ag.GET("count", hdl.Count)
 	ag.GET("list", hdl.List)
 	ag.GET("detail", hdl.Detail)
 
@@ -146,6 +147,24 @@ type ArticleRequest struct {
 	Id      int64  `json:"id"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
+}
+
+// Count 获取用户制作库的帖子总数
+func (hdl *ArticleHandler) Count(ctx *gin.Context) {
+
+	// 获取用户 Token
+	_claims, _ := ctx.Get("claims")
+	claims := _claims.(*jwts.CustomClaims)
+
+	// 调用下层服务
+	count, err := hdl.svc.Count(ctx, claims.UserId)
+	if err != nil {
+		res.FailWithMsg("系统错误", ctx)
+		return
+	}
+
+	// 返回响应
+	res.OKWithData(gin.H{"total": count}, ctx)
 }
 
 // List 获取用户制作库的帖子列表
@@ -375,7 +394,6 @@ func (hdl *ArticleHandler) PubList(ctx *gin.Context) {
 	// 获取用户 Token
 	_claims, _ := ctx.Get("claims")
 	claims := _claims.(*jwts.CustomClaims)
-
 
 	// 调用下层服务
 	list, err := hdl.svc.PubList(ctx, claims.UserId, req.Limit, req.Offset)

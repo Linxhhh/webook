@@ -16,6 +16,7 @@ type ArticleDAO interface {
 	Update(ctx context.Context, article Article) error
 	Sync(ctx context.Context, article Article) (int64, error)
 	SyncStatus(ctx context.Context, uid int64, aid int64, status uint8) error
+	CountByAuthor(ctx context.Context, uid int64) (int64, error)
 	GetListByAuthor(ctx context.Context, uid int64, offset, limit int) ([]Article, error)
 	GetById(ctx context.Context, aid int64) (Article, error)
 	GetPubById(ctx context.Context, aid int64) (PublishedArticle, error) 
@@ -151,6 +152,13 @@ func (dao *GormArticleDAO) SyncStatus(ctx context.Context, uid int64, aid int64,
 		}).Error
 	})
 	return err
+}
+
+// CountByAuthor 获取作者的制作库帖子总数
+func (dao *GormArticleDAO) CountByAuthor(ctx context.Context, uid int64) (int64, error) {
+    var count int64
+    err := dao.RandSalve().WithContext(ctx).Model(&Article{}).Where("author_id = ?", uid).Count(&count).Error
+    return count, err
 }
 
 // GetListByAuthor 获取作者的制作库帖子列表
