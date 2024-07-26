@@ -19,13 +19,12 @@ func InitMiddleware() []gin.HandlerFunc {
 		cors.New(cors.Config{
 			AllowCredentials: true,
 			AllowHeaders:     []string{"Content-Type", "jwt-token"},
-			ExposeHeaders:    []string{"jwt-token", "Content-Length", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Content-Type",},
+			ExposeHeaders:    []string{"jwt-token", "Content-Length", "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Content-Type"},
+			// AllowAllOrigins:  true,
 			AllowOriginFunc: func(origin string) bool {
-				// 开发环境下允许
-				if strings.HasPrefix(origin, "http://localhost") {
-					return true
-				}
-				if strings.HasPrefix(origin, "http://127.0.0.1") {
+				// 允许开发环境的 localhost 和 127.0.0.1
+				if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "https://localhost") ||
+					strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "https://127.0.0.1") {
 					return true
 				}
 				return strings.Contains(origin, "webook.com")
@@ -38,16 +37,15 @@ func InitMiddleware() []gin.HandlerFunc {
 	}
 }
 
-
 // 处理 OPTIONS 请求
 func handleOptions() gin.HandlerFunc {
-    return func(c *gin.Context) {
-       if c.Request.Method == "OPTIONS" {
-          c.AbortWithStatus(http.StatusNoContent)
-          return
-       }
-       c.Next()
-    }
+	return func(c *gin.Context) {
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
 }
 
 /* 注册 Session 会话中间件

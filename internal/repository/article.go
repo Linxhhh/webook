@@ -55,10 +55,10 @@ func (repo *CacheArticleRepository) Update(ctx context.Context, article domain.A
 	repo.cache.DelFirstPage(ctx, article.AuthorId)
 
 	err := repo.dao.Update(ctx, dao.Article{
-		Id:      article.Id,
-		Title:   article.Title,
-		Content: article.Content,
-		Status:  uint8(article.Status),
+		Id:       article.Id,
+		Title:    article.Title,
+		Content:  article.Content,
+		AuthorId: article.AuthorId,
 	})
 	if err == nil {
 		// 清除首页缓存
