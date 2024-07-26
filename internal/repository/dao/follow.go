@@ -101,7 +101,7 @@ func (dao *GormFollowDAO) DeleteFollow(ctx context.Context, follower_id, followe
 	return dao.master.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 
 		// 软删除用户关注记录
-		err := dao.master.WithContext(ctx).
+		err := dao.master.WithContext(ctx).Model(&FollowRelation{}).
 			Where("follower = ? AND followee = ?", follower_id, followee_id).
 			Updates(map[string]any{
 				"utime":  now,
