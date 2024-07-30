@@ -44,6 +44,7 @@ func (hdl *ArticleHandler) RegistryRouter(router *gin.Engine) {
 	// 读者接口
 	pg := router.Group("pub")
 	pg.GET("list", hdl.PubList)
+	pg.GET("search", hdl.Search)
 	pg.GET("detail", hdl.PubDetail, hdl.Read)
 	pg.POST("like", hdl.Like)
 	pg.POST("collect", hdl.Collect)
@@ -403,6 +404,34 @@ func (hdl *ArticleHandler) PubList(ctx *gin.Context) {
 	}
 	if len(list) == 0 {
 		res.OKWithMsg("目前没有新帖子", ctx)
+		return
+	}
+	res.OKWithData(list, ctx)
+}
+
+func (hdl *ArticleHandler) Search(ctx *gin.Context) {
+
+	// 绑定参数
+	type Req struct {
+		Title  string `json:"title"`
+		Limit  int    `json:"limit"`
+		Offset int    `json:"offset"`
+	}
+	var req Req
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		res.FailWithMsg("参数错误", ctx)
+		return
+	}
+
+	// 调用下层服务
+	list, err := hdl.svc.SearchByTitle(ctx, req.Title, req.Limit, req.Offset)
+	if err != nil {
+		res.FailWithMsg("获取帖子失败", ctx)
+		return
+	}
+	if len(list) == 0 {
+		res.OKWithMsg("未查询到相关帖子", ctx)
 		return
 	}
 	res.OKWithData(list, ctx)

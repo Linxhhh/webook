@@ -21,6 +21,7 @@ type ArticleRepository interface {
 	GetById(ctx context.Context, aid int64) (domain.Article, error)
 	GetPubById(ctx context.Context, aid int64) (domain.Article, error)
 	GetPubList(ctx context.Context, startTime time.Time, limit, offset int) ([]domain.Article, error)
+	SearchByTitle(ctx context.Context, title string, limit, offset int) ([]domain.Article, error)
 }
 
 type CacheArticleRepository struct {
@@ -222,6 +223,26 @@ func (repo *CacheArticleRepository) GetPubById(ctx context.Context, aid int64) (
 
 func (repo *CacheArticleRepository) GetPubList(ctx context.Context, startTime time.Time, limit, offset int) ([]domain.Article, error) {
 	pubList, err := repo.dao.GetPubList(ctx, startTime, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	var artList []domain.Article
+	for _, elem := range pubList {
+		artList = append(artList, domain.Article{
+			Id:       elem.Id,
+			Title:    elem.Title,
+			Content:  elem.Content,
+			AuthorId: elem.AuthorId,
+			Ctime:    time.UnixMilli(elem.Ctime),
+			Utime:    time.UnixMilli(elem.Utime),
+			Status:   domain.ArticleStatus(elem.Status),
+		})
+	}
+	return artList, err
+}
+
+func (repo *CacheArticleRepository) SearchByTitle(ctx context.Context, title string, limit, offset int) ([]domain.Article, error) {
+	pubList, err := repo.dao.SearchByTitle(ctx, title, limit, offset)
 	if err != nil {
 		return nil, err
 	}

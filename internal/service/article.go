@@ -78,3 +78,8 @@ func (as *ArticleService) PubList(ctx context.Context, uid int64, limit, offset 
 	startTime := time.Now().Add(-7 * 24 * time.Hour)
 	return as.repo.GetPubList(ctx, startTime, offset, limit)
 }
+
+func (as *ArticleService) SearchByTitle(ctx context.Context, title string, limit, offset int) ([]domain.Article, error) {
+	// 按照标题模糊查询
+	return as.repo.SearchByTitle(ctx, title, limit, offset)
+}
