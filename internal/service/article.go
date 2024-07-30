@@ -76,10 +76,34 @@ func (as *ArticleService) PubDetail(ctx context.Context, aid int64) (domain.Arti
 func (as *ArticleService) PubList(ctx context.Context, uid int64, limit, offset int) ([]domain.Article, error) {
 	// 获取一周内的帖子
 	startTime := time.Now().Add(-7 * 24 * time.Hour)
-	return as.repo.GetPubList(ctx, startTime, offset, limit)
+	arts, err := as.repo.GetPubList(ctx, startTime, offset, limit)
+	if err != nil {
+		return []domain.Article{}, err
+	}
+	for i := range arts {
+		// 获取 AuthorName
+		user, err := as.userRepo.SearchById(ctx, arts[i].AuthorId)
+		if err != nil {
+			return []domain.Article{}, errors.New("查找用户失败")
+		}
+		arts[i].AuthorName = user.NickName
+	}
+	return arts, nil
 }
 
 func (as *ArticleService) SearchByTitle(ctx context.Context, title string, limit, offset int) ([]domain.Article, error) {
 	// 按照标题模糊查询
-	return as.repo.SearchByTitle(ctx, title, limit, offset)
+	arts, err := as.repo.SearchByTitle(ctx, title, limit, offset)
+	if err != nil {
+		return []domain.Article{}, err
+	}
+	for i := range arts {
+		// 获取 AuthorName
+		user, err := as.userRepo.SearchById(ctx, arts[i].AuthorId)
+		if err != nil {
+			return []domain.Article{}, errors.New("查找用户失败")
+		}
+		arts[i].AuthorName = user.NickName
+	}
+	return arts, nil
 }
