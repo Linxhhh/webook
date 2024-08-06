@@ -17,7 +17,7 @@ var (
 )
 
 type UserDAO interface {
-	Insert(ctx context.Context, u User) error
+	Insert(ctx context.Context, u User) (int64, error)
 	SearchById(ctx context.Context, id int64) (User, error)
 	SearchByEmail(ctx context.Context, email string) (User, error)
 	SearchByPhone(ctx context.Context, phone string) (User, error)
@@ -46,7 +46,7 @@ func (dao *GormUserDAO) RandSalve() *gorm.DB {
 }
 
 // Insert 往数据库 User 表中，插入一条新记录
-func (dao GormUserDAO) Insert(ctx context.Context, u User) error {
+func (dao GormUserDAO) Insert(ctx context.Context, u User) (int64, error) {
 
 	// 存储毫秒数
 	now := time.Now().UnixMilli()
@@ -59,10 +59,10 @@ func (dao GormUserDAO) Insert(ctx context.Context, u User) error {
 		const duplicateErr uint16 = 1062
 		if mysqlErr.Number == duplicateErr {
 			// 用户冲突，邮箱/手机号码冲突
-			return ErrDuplicateEmailorPhone
+			return -1, ErrDuplicateEmailorPhone
 		}
 	}
-	return err
+	return u.Id, err
 }
 
 // SearchById 通过 id 查找用户

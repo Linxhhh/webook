@@ -17,7 +17,7 @@ var (
 
 type UserRepository interface {
 	CreateByEmail(ctx context.Context, u domain.User) error
-	CreateByPhone(ctx context.Context, phone string) error
+	CreateByPhone(ctx context.Context, phone string) (int64, error)
 	SearchById(ctx context.Context, id int64) (domain.User, error)
 	SearchByEmail(ctx context.Context, email string) (domain.User, error)
 	SearchByPhone(ctx context.Context, phone string) (int64, error)
@@ -37,16 +37,17 @@ func NewUserRepository(dao dao.UserDAO, cache cache.UserCache) UserRepository {
 }
 
 func (repo *CacheUserRepository) CreateByEmail(ctx context.Context, u domain.User) error {
-	return repo.dao.Insert(ctx, dao.User{
+	_, err := repo.dao.Insert(ctx, dao.User{
 		Email: sql.NullString{
 			String: u.Email,
 			Valid:  u.Email != "",
 		},
 		Password: u.Password,
 	})
+	return err
 }
 
-func (repo *CacheUserRepository) CreateByPhone(ctx context.Context, phone string) error {
+func (repo *CacheUserRepository) CreateByPhone(ctx context.Context, phone string) (int64, error) {
 	return repo.dao.Insert(ctx, dao.User{
 		Phone: sql.NullString{
 			String: phone,

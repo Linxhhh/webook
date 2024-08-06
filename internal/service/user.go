@@ -96,7 +96,7 @@ func (us *UserService) FindOrCreate(ctx context.Context, phone string) (int64, e
 	uid, err := us.repo.SearchByPhone(ctx, phone)
 	if err == repository.ErrUserNotFound {
 		// 创建用户
-		err = us.repo.CreateByPhone(ctx, phone)
+		uid, err = us.repo.CreateByPhone(ctx, phone)
 	}
 	if err != nil {
 		return -1, err
