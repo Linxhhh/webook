@@ -69,6 +69,7 @@ func (repo *CacheUserRepository) SearchById(ctx context.Context, id int64) (doma
 	}
 
 	u := domain.User{
+		Id:           user.Id,
 		Email:        user.Email.String,
 		Phone:        user.Phone.String,
 		NickName:     user.NickName,
