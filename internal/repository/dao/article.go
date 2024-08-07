@@ -147,7 +147,7 @@ func (dao *GormArticleDAO) SyncStatus(ctx context.Context, uid int64, aid int64,
 		}
 
 		// 撤销线上库的帖子
-		return tx.Model(&PublishedArticle{}).Where("id = ? AND author_id", aid, uid).Updates(map[string]any{
+		return tx.Model(&PublishedArticle{}).Where("id = ? AND author_id = ?", aid, uid).Updates(map[string]any{
 			"utime":  now,
 			"status": status,
 		}).Error
