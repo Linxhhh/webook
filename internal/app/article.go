@@ -392,12 +392,8 @@ func (hdl *ArticleHandler) PubList(ctx *gin.Context) {
 		return
 	}
 
-	// 获取用户 Token
-	_claims, _ := ctx.Get("claims")
-	claims := _claims.(*jwts.CustomClaims)
-
 	// 调用下层服务
-	list, err := hdl.svc.PubList(ctx, claims.UserId, req.Limit, req.Offset)
+	list, err := hdl.svc.PubList(ctx, req.Limit, req.Offset)
 	if err != nil {
 		res.FailWithMsg("获取帖子失败", ctx)
 		return

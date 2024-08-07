@@ -73,7 +73,7 @@ func (as *ArticleService) PubDetail(ctx context.Context, aid int64) (domain.Arti
 	return art, nil
 }
 
-func (as *ArticleService) PubList(ctx context.Context, uid int64, limit, offset int) ([]domain.Article, error) {
+func (as *ArticleService) PubList(ctx context.Context, limit, offset int) ([]domain.Article, error) {
 	// 获取一周内的帖子
 	startTime := time.Now().Add(-7 * 24 * time.Hour)
 	arts, err := as.repo.GetPubList(ctx, startTime, offset, limit)
