@@ -61,7 +61,7 @@ func (dao *GormArticleDAO) Insert(ctx context.Context, article Article) (int64, 
 // Update 更新帖子
 func (dao *GormArticleDAO) Update(ctx context.Context, article Article) error {
 
-	// Gorm 在更新时，会忽略为空值的字段
+	// 下面的更新语句，不会忽略为空值的字段！！！
 	now := time.Now().UnixMilli()
 	res := dao.master.WithContext(ctx).Model(&article).
 		Where("id = ? AND author_id = ?", article.Id, article.AuthorId).Updates(map[string]any{
