@@ -9,7 +9,10 @@ import (
 	"github.com/Linxhhh/webook/internal/repository/dao"
 )
 
-var ErrIncorrectArticleorAuthor = dao.ErrIncorrectArticleorAuthor
+var (
+	ErrIncorrectArticleorAuthor = dao.ErrIncorrectArticleorAuthor
+	ErrArticleNotFound = dao.ErrRecordNotFound
+)
 
 type ArticleRepository interface {
 	Insert(ctx context.Context, article domain.Article) (int64, error)

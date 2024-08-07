@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/Linxhhh/webook/internal/domain"
@@ -54,8 +55,11 @@ func (svc *InteractionService) CollectionList(ctx context.Context, biz string, u
 	// 获取收藏的帖子
 	var arts []domain.Article
 	for _, aid := range aids {
-		art, err := svc.artRepo.GetById(ctx, aid)
+		art, err := svc.artRepo.GetPubById(ctx, aid)
 		if err != nil {
+			if errors.Is(err, repository.ErrArticleNotFound) {
+				continue
+			}
 			return nil, err
 		}
 		arts = append(arts, art)
