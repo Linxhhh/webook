@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrIncorrectArticleorAuthor = errors.New("帖子或作者ID错误")
@@ -66,6 +67,7 @@ func (dao *GormArticleDAO) Update(ctx context.Context, article Article) error {
 		Where("id = ? AND author_id = ?", article.Id, article.AuthorId).Updates(map[string]any{
 		"title":   article.Title,
 		"content": article.Content,
+		"status":  article.Status,
 		"utime":   now,
 	})
 	if res.Error != nil {
@@ -109,21 +111,20 @@ func (dao *GormArticleDAO) upsert(ctx context.Context, tx *gorm.DB, article Arti
 
 	// 类型转换
 	pa := PublishedArticle(article)
+	now := time.Now().UnixMilli()
+	pa.Ctime = now
+	pa.Utime = now
 
-	// 查找帖子，如果不存在，则插入一条新记录
-	err := tx.WithContext(ctx).Where("id = ?", pa.Id).First(&pa).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		pa.Ctime = time.Now().UnixMilli()
-		pa.Utime = pa.Ctime
-		return tx.WithContext(ctx).Create(&pa).Error
-	}
-	if err != nil {
-		return err
-	}
-
-	// 如果帖子存在，则更新
-	pa.Utime = time.Now().UnixMilli()
-	return tx.WithContext(ctx).Save(&pa).Error
+	// upsert 语义
+	err := tx.WithContext(ctx).Clauses(clause.OnConflict{
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"title":   pa.Title,
+			"content": pa.Content,
+			"status":  pa.Status,
+			"utime":   pa.Utime,
+		}),
+	}).Create(&pa).Error
+	return err
 }
 
 // SyncStatus 使用事务，先撤销制作库，再撤销线上库
