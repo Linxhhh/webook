@@ -135,7 +135,7 @@ func (dao *GormFollowDAO) DeleteFollow(ctx context.Context, follower_id, followe
 // GetFollowed 查询是否关注某人
 func (dao *GormFollowDAO) GetFollowed(ctx context.Context, follower_id, followee_id int64) (FollowRelation, error) {
 	var res FollowRelation
-	err := dao.RandSalve().WithContext(ctx).Where("follower = ? AND followee = ?", follower_id, followee_id).First(&res).Error
+	err := dao.RandSalve().WithContext(ctx).Where("follower = ? AND followee = ? And status = 1", follower_id, followee_id).First(&res).Error
 	return res, err
 }
 
